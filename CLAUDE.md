@@ -230,6 +230,110 @@ coverage html  # Report in htmlcov/index.html
 - Mutation score: 100% (8/8 mutations killed)
 - Test execution time: ~1-2 seconds
 
+## Security Practices
+
+### Security Scanning Tools
+
+The project includes comprehensive security scanning tools configured for Django:
+
+**Install security tools (development):**
+```bash
+pip install -r requirements-dev.txt
+```
+
+**Run all security scans:**
+```bash
+python run_security_scans.py
+```
+
+This automated script runs:
+1. **Bandit** - Python security linter
+2. **Safety** - Dependency vulnerability scanner
+3. **pip-audit** - PyPI package vulnerability checker
+4. **Semgrep** - Security pattern scanner for Django
+
+**Run scans individually:**
+```bash
+# Static security analysis
+bandit -r calendar_app/ --configfile .bandit -f txt
+
+# Dependency vulnerability checks
+safety scan
+pip-audit -r requirements.txt
+
+# Django-specific security patterns
+semgrep --config=.semgrep.yml calendar_app/
+```
+
+### Security Configuration
+
+**Bandit Configuration (`.bandit`):**
+- Excludes test directories and migrations
+- Skips B101 (assert usage - acceptable in tests)
+- Skips B601 (shell=True - reviewed manually)
+
+**Semgrep Rules (`.semgrep.yml`):**
+- DEBUG=True detection in production
+- Hardcoded SECRET_KEY detection
+- SQL injection pattern matching
+- XSS vulnerability detection (mark_safe usage)
+- CSRF exemption warnings
+
+### Production Security Settings
+
+When deploying to production, update `meeting_scheduler/settings.py`:
+
+1. **Set DEBUG to False:**
+   ```python
+   DEBUG = False
+   ```
+
+2. **Configure ALLOWED_HOSTS:**
+   ```python
+   ALLOWED_HOSTS = ['yourdomain.com', 'www.yourdomain.com']
+   ```
+
+3. **Use Environment Variable for SECRET_KEY:**
+   ```python
+   import os
+   SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY')
+   ```
+
+4. **Enable HTTPS Security (uncomment in settings.py):**
+   ```python
+   SECURE_SSL_REDIRECT = True
+   SESSION_COOKIE_SECURE = True
+   CSRF_COOKIE_SECURE = True
+   SECURE_HSTS_SECONDS = 31536000
+   ```
+
+### Security Features Enabled
+
+The following security features are already configured:
+
+- **Clickjacking Protection:** `X_FRAME_OPTIONS = 'DENY'`
+- **MIME Type Sniffing Prevention:** `SECURE_CONTENT_TYPE_NOSNIFF = True`
+- **XSS Protection:** `SECURE_BROWSER_XSS_FILTER = True`
+- **Session Security:** HttpOnly cookies, Strict SameSite, 1-hour timeout
+- **CSRF Protection:** HttpOnly tokens, Strict SameSite
+- **Security Logging:** Configured to log security events to `logs/security.log`
+
+### Dependencies
+
+**Current versions (security-patched):**
+- Django 5.1.13 (latest security release)
+- All dependencies scanned for known vulnerabilities
+- Regular updates required to maintain security
+
+### Security Best Practices
+
+1. **Run security scans before committing code**
+2. **Never commit SECRET_KEY or sensitive credentials**
+3. **Keep Django and dependencies updated**
+4. **Review Bandit/Semgrep findings and address issues**
+5. **Use HTTPS in production environments**
+6. **Regularly audit dependencies with Safety and pip-audit**
+
 ## Architecture Notes
 
 ### Single-View Application
@@ -276,17 +380,18 @@ The codebase includes `print()` statements for debugging form errors. These are 
 ## Configuration
 
 ### Settings (`meeting_scheduler/settings.py`)
-- **Django Version**: 5.1.6
+- **Django Version**: 5.1.13 (security-patched)
 - **Database**: SQLite3 at `BASE_DIR / 'db.sqlite3'`
-- **Debug Mode**: `DEBUG = True` (development only)
+- **Debug Mode**: `DEBUG = True` (development only - **MUST be False in production**)
 - **Allowed Hosts**: Currently `['*']` (accepts all hosts). For production or VM deployment, update to specific IP addresses:
   ```python
   ALLOWED_HOSTS = ['128.198.51.79', 'localhost']  # Example
   ```
-- **Secret Key**: Currently uses insecure default key (change for production)
+- **Secret Key**: Currently uses insecure default key (**MUST use environment variable in production**)
 - **Time Zone**: UTC
 - **Installed Apps**: Only `calendar_app` beyond Django defaults
 - **Auto-reload**: With `DEBUG=True`, Django automatically reloads when files are modified
+- **Security Settings**: Production-ready security headers and session configuration included (see Security Practices section)
 
 ## Code Attribution
 

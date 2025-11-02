@@ -1,6 +1,9 @@
-# this is basically the default file that was generated when I installed django
-# the only change was to set the path to the calendar_view from views.py
+"""
+URL configuration for the calendar application.
 
+This module defines URL patterns for routing requests to the calendar
+application views. Currently maps the root path to the main calendar view.
+"""
 from django.urls import path
 from .views import calendar_view
 

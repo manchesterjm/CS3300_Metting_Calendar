@@ -122,3 +122,76 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# =============================================================================
+# SECURITY SETTINGS
+# =============================================================================
+# These settings should be enabled in production environments.
+# For development, they are commented out or set to False to ease testing.
+# IMPORTANT: When deploying to production:
+# 1. Set DEBUG = False
+# 2. Use environment variable for SECRET_KEY (never commit real keys)
+# 3. Update ALLOWED_HOSTS to specific domains
+# 4. Enable HTTPS-related security settings
+
+# Security Headers for Production
+# Uncomment these when deploying with HTTPS
+# SECURE_SSL_REDIRECT = True  # Redirect all HTTP to HTTPS
+# SESSION_COOKIE_SECURE = True  # Send session cookie only over HTTPS
+# CSRF_COOKIE_SECURE = True  # Send CSRF cookie only over HTTPS
+# SECURE_HSTS_SECONDS = 31536000  # HTTP Strict Transport Security (1 year)
+# SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+# SECURE_HSTS_PRELOAD = True
+
+# Content Security and Clickjacking Protection
+X_FRAME_OPTIONS = 'DENY'  # Prevent framing (clickjacking protection)
+SECURE_CONTENT_TYPE_NOSNIFF = True  # Prevent MIME type sniffing
+SECURE_BROWSER_XSS_FILTER = True  # Enable browser XSS protection
+
+# Security Logging Configuration
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose',
+        },
+        'file': {
+            'class': 'logging.FileHandler',
+            'filename': BASE_DIR / 'logs' / 'security.log',
+            'formatter': 'verbose',
+        },
+    },
+    'loggers': {
+        'django.security': {
+            'handlers': ['console', 'file'],
+            'level': 'WARNING',
+            'propagate': False,
+        },
+    },
+}
+
+# Session Security
+SESSION_COOKIE_HTTPONLY = True  # Prevent JavaScript access to session cookie
+SESSION_COOKIE_SAMESITE = 'Strict'  # CSRF protection for session cookies
+SESSION_COOKIE_AGE = 3600  # Session expires after 1 hour of inactivity
+
+# CSRF Protection
+CSRF_COOKIE_HTTPONLY = True  # Prevent JavaScript access to CSRF token
+CSRF_COOKIE_SAMESITE = 'Strict'  # Additional CSRF protection
+CSRF_USE_SESSIONS = False  # Use cookie-based CSRF tokens
+
+# Note: For production deployment
+# - Move SECRET_KEY to environment variable: os.environ.get('DJANGO_SECRET_KEY')
+# - Set DEBUG = False
+# - Configure ALLOWED_HOSTS = ['yourdomain.com', 'www.yourdomain.com']
+# - Enable HTTPS security settings (commented above)
+# - Use a production database (PostgreSQL, MySQL) instead of SQLite
+# - Configure static file serving (STATIC_ROOT, collectstatic)

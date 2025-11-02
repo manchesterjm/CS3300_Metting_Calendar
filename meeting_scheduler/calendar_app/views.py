@@ -1,11 +1,41 @@
-# calendar_app/views.py
+"""
+Django views for the calendar application.
+
+This module contains the main view logic for the meeting scheduler,
+including handling unavailability entry creation, free time slot calculation,
+entry display, and deletion functionality.
+"""
 import datetime
 from django.contrib import messages
 from django.shortcuts import render, redirect
 from .forms import UnavailabilityForm, DeleteSelectedForm
 from .models import Unavailability
 
+
 def calendar_view(request):
+    """
+    Main view for the calendar application handling all form submissions.
+
+    This single view handles multiple POST actions using a button name pattern:
+    - submit_unavailability: Creates new unavailability entries
+    - show_free_times: Calculates and displays available time slots for a date
+    - show_last_five: Displays the 5 most recent unavailability entries
+    - delete_selected: Deletes selected unavailability entries
+
+    Free time slots are calculated in 30-minute intervals between 8:00-20:00,
+    excluding any periods marked as unavailable in the database.
+
+    Args:
+        request: HttpRequest object containing metadata about the request.
+
+    Returns:
+        HttpResponse: Rendered calendar template with form(s) and optionally
+            free_times list if show_free_times was requested.
+
+    Redirects:
+        - After successful unavailability submission
+        - After successful deletion of entries
+    """
     free_times = None
     form_delete = None  # This will be used for deletion
 

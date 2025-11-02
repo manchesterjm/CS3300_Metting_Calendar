@@ -13,7 +13,13 @@
       "Bash(git init:*)",
       "Bash(git config:*)",
       "Bash(git remote add:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$(cat <<''EOF''\nInitial commit: Meeting Scheduler with comprehensive testing suite\n\nFeatures:\n- Django 5.1.6 meeting scheduler web application\n- Unavailability tracking with date/time management\n- Free time slot calculation (30-minute intervals, 8:00-20:00)\n- CRUD operations for unavailability entries\n- Responsive HTML template with mobile support\n\nTesting Suite (100% Mutation Score Achievement):\n- 21 comprehensive unit tests\n- 9 fuzz tests with 350+ generated test cases\n- Custom mutation testing framework\n- 93%+ code coverage on critical modules (models, forms, views)\n- Automated test runner (run_all_tests.py)\n\nCode Quality:\n- Pylint score: 10.0/10\n- All code follows PEP 8 standards\n- Comprehensive inline documentation\n\nDocumentation:\n- CLAUDE.md: Development guide and testing workflow\n- TESTING_REPORT.md: Comprehensive testing analysis\n- TESTING_WORKFLOW.md: Step-by-step testing procedures\n- TEST_IMPROVEMENTS.md: Before/after testing improvements\n- TESTING_IMPLEMENTATION_SUMMARY.md: Complete testing overview\n- setup_instructions.txt: Ubuntu VM deployment guide\n\nTechnology Stack:\n- Django 5.1.6\n- SQLite database\n- Hypothesis for fuzz testing\n- Coverage.py for code coverage\n- Pylint for code quality\n- Custom mutation testing framework\n\nAchievement: 100% mutation score (8/8 mutations killed)\n\n🤖 Generated with Claude Code (claude.ai/code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(git push:*)",
+      "Bash(bandit:*)",
+      "Bash(safety check:*)",
+      "Bash(pip-audit:*)",
+      "Bash(semgrep:*)"
     ],
     "deny": [],
     "ask": []

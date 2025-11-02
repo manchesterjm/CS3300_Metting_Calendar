@@ -1,0 +1,16 @@
+# Development and Security Tools
+# Use: pip install -r requirements-dev.txt
+
+# Code Quality
+pylint>=4.0.0
+
+# Testing
+hypothesis>=6.143.0
+coverage>=7.11.0
+pytest>=8.4.0
+
+# Security Scanning
+bandit>=1.8.0
+safety>=3.6.0
+pip-audit>=2.9.0
+semgrep>=1.142.0
