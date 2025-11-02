@@ -1,0 +1,23 @@
+[run]
+source = calendar_app
+omit =
+    */test*.py
+    */migrations/*
+    */__init__.py
+    */admin.py
+    */apps.py
+    */management/commands/*
+    */conftest.py
+
+[report]
+exclude_lines =
+    pragma: no cover
+    def __repr__
+    raise AssertionError
+    raise NotImplementedError
+    if __name__ == .__main__.:
+    if TYPE_CHECKING:
+    @abstract
+
+[html]
+directory = htmlcov

@@ -53,6 +53,8 @@ htmlcov/
 .hypothesis/
 *.cover
 .tox/
+coverage.xml
+pytest.xml
 
 # Security
 *.pem
