@@ -87,7 +87,7 @@ jobs:
             **Commit:** `${{ github.event.pull_request.head.sha }}`
             **Run:** [View Full Report](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
 
-            **Coverage Requirement:** 74%+ overall, 93%+ on critical modules (models, forms, views)
+            **Coverage Requirement:** 80%+ overall, 93%+ on critical modules (models, forms, views)
 
             </details>
 
@@ -105,4 +105,4 @@ jobs:
       - name: Check coverage threshold
         run: |
           cd meeting_scheduler
-          python -m coverage report --fail-under=74
+          python -m coverage report --fail-under=80

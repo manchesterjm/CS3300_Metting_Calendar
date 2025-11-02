@@ -64,7 +64,7 @@ jobs:
       run: |
         cd meeting_scheduler
         python -m coverage run --source=calendar_app manage.py test calendar_app.tests
-        python -m coverage report --fail-under=74
+        python -m coverage report --fail-under=80
         python -m coverage html
 
     - name: Upload Coverage Report
