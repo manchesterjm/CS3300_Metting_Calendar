@@ -24,7 +24,8 @@
       "Bash(del db.sqlite3)",
       "Bash(migrations/__init__.py)",
       "Bash(timeout 5 python:*)",
-      "Bash(timeout 300 python:*)"
+      "Bash(timeout 300 python:*)",
+      "Bash(git commit:*)"
     ],
     "deny": [],
     "ask": []

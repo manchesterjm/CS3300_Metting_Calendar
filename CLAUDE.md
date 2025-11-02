@@ -438,8 +438,30 @@ Free time slots are calculated in 30-minute increments:
 
 ### Database
 - Uses SQLite (`db.sqlite3`)
-- Single model: `Unavailability` with date, start_time, end_time fields
-- No user authentication system (all data is global)
+- Models: `Unavailability` (with user ForeignKey), Django's built-in User model
+- User authentication system with data isolation (users only see their own data)
+- Default admin account available via `python manage.py create_default_admin`
+
+### Authentication & Password Reset
+- **User Authentication:** Registration, login, logout, account management
+- **Password Reset:** Full workflow implemented with email support
+- **Email Backend:** Console backend (development) - emails printed to terminal
+- **Data Isolation:** Each user sees only their own unavailability entries
+- **Admin Access:** Staff users can access Django admin panel via navbar
+- **Mobile Responsive:** All auth pages work on phones and tablets
+
+**Testing Password Reset:**
+See `PASSWORD_RESET_GUIDE.md` for step-by-step testing instructions.
+
+**Email Configuration (settings.py):**
+- **Development:** `EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'`
+- **Production:** Uncomment SMTP settings and configure with Gmail/SendGrid/Mailgun
+
+**Password Reset URLs:**
+- Request reset: `/password-reset/`
+- Email sent confirmation: `/password-reset/done/`
+- Set new password: `/password-reset-confirm/<uidb64>/<token>/`
+- Success page: `/password-reset-complete/`
 
 ## Important Implementation Details
 
