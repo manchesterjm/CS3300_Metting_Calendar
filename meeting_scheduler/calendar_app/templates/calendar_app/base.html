@@ -6,6 +6,32 @@
     <meta name="description" content="Meeting Scheduler - Manage your availability and find free time slots">
     <meta name="author" content="CS3300 Project Team">
     <title>{% block title %}Meeting Calendar{% endblock %}</title>
+
+    <!-- PWA Meta Tags -->
+    <meta name="theme-color" content="#1abc9c">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Meeting Scheduler">
+    <meta name="mobile-web-app-capable" content="yes">
+
+    <!-- Web App Manifest -->
+    {% load static %}
+    <link rel="manifest" href="{% static 'calendar_app/manifest.json' %}">
+
+    <!-- Apple Touch Icons -->
+    <link rel="apple-touch-icon" sizes="72x72" href="{% static 'calendar_app/icons/icon-72x72.png' %}">
+    <link rel="apple-touch-icon" sizes="96x96" href="{% static 'calendar_app/icons/icon-96x96.png' %}">
+    <link rel="apple-touch-icon" sizes="128x128" href="{% static 'calendar_app/icons/icon-128x128.png' %}">
+    <link rel="apple-touch-icon" sizes="144x144" href="{% static 'calendar_app/icons/icon-144x144.png' %}">
+    <link rel="apple-touch-icon" sizes="152x152" href="{% static 'calendar_app/icons/icon-152x152.png' %}">
+    <link rel="apple-touch-icon" sizes="192x192" href="{% static 'calendar_app/icons/icon-192x192.png' %}">
+    <link rel="apple-touch-icon" sizes="384x384" href="{% static 'calendar_app/icons/icon-384x384.png' %}">
+    <link rel="apple-touch-icon" sizes="512x512" href="{% static 'calendar_app/icons/icon-512x512.png' %}">
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" sizes="32x32" href="{% static 'calendar_app/icons/icon-72x72.png' %}">
+    <link rel="icon" type="image/png" sizes="16x16" href="{% static 'calendar_app/icons/icon-72x72.png' %}">
+
     <style>
         * {
             margin: 0;
@@ -214,5 +240,60 @@
     </div>
 
     {% block extra_scripts %}{% endblock %}
+
+    <!-- PWA Service Worker Registration -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('{% static "calendar_app/service-worker.js" %}')
+                    .then(registration => {
+                        console.log('[PWA] Service Worker registered:', registration.scope);
+
+                        // Check for updates periodically
+                        registration.addEventListener('updatefound', () => {
+                            const newWorker = registration.installing;
+                            console.log('[PWA] Service Worker update found');
+
+                            newWorker.addEventListener('statechange', () => {
+                                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                    // New service worker available, prompt user to reload
+                                    if (confirm('New version available! Reload to update?')) {
+                                        window.location.reload();
+                                    }
+                                }
+                            });
+                        });
+                    })
+                    .catch(error => {
+                        console.error('[PWA] Service Worker registration failed:', error);
+                    });
+            });
+
+            // Listen for service worker messages
+            navigator.serviceWorker.addEventListener('message', event => {
+                console.log('[PWA] Message from service worker:', event.data);
+            });
+        } else {
+            console.warn('[PWA] Service Workers are not supported in this browser');
+        }
+
+        // PWA install prompt
+        let deferredPrompt;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            // Prevent the mini-infobar from appearing on mobile
+            e.preventDefault();
+            // Store the event so it can be triggered later
+            deferredPrompt = e;
+            console.log('[PWA] Install prompt available');
+
+            // Optionally, show a custom install button/banner
+            // You can add UI here to prompt users to install the app
+        });
+
+        window.addEventListener('appinstalled', () => {
+            console.log('[PWA] App installed successfully');
+            deferredPrompt = null;
+        });
+    </script>
 </body>
 </html>
