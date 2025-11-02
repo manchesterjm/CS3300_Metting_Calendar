@@ -63,7 +63,7 @@ jobs:
     - name: Generate Coverage Report
       run: |
         cd meeting_scheduler
-        python -m coverage run --source=calendar_app manage.py test calendar_app.tests
+        python -m coverage run --source=calendar_app --omit='*/test*.py,*/migrations/*' manage.py test calendar_app.tests
         python -m coverage report --fail-under=80
         python -m coverage html
 

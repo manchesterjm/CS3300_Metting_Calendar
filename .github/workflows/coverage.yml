@@ -34,7 +34,7 @@ jobs:
       - name: Run Django tests with coverage
         run: |
           cd meeting_scheduler
-          python -m coverage run --source=calendar_app manage.py test calendar_app.tests --verbosity=2
+          python -m coverage run --source=calendar_app --omit='*/test*.py,*/migrations/*' manage.py test calendar_app.tests --verbosity=2
           python -m coverage xml
           python -m coverage report
 
