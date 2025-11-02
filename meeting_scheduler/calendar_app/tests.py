@@ -486,6 +486,13 @@ class AuthenticationTest(TestCase):
         self.assertEqual(User.objects.filter(username='testuser').count(), 1)
         # Verify username field has an error (more robust than checking specific text)
         self.assertIn('username', form.errors)
+        # Verify error message is user-friendly and actionable
+        username_errors = form.errors['username']
+        self.assertTrue(len(username_errors) > 0, "Username field should have error messages")
+        # Check that error message mentions the issue (username exists/taken)
+        error_text = str(username_errors[0]).lower()
+        self.assertTrue('username' in error_text or 'exists' in error_text or 'already' in error_text,
+                       "Error message should clearly indicate username is already taken")
         # Verify error is displayed in rendered HTML (user-facing validation)
         self.assertContains(response, 'username')
         # Verify the registration form is re-rendered with errors in context
@@ -517,6 +524,13 @@ class AuthenticationTest(TestCase):
         # Check that password2 field has error (robust check without specific wording)
         self.assertTrue(form.has_error('password2'))
         self.assertIn('password2', form.errors)
+        # Verify error message is user-friendly and describes the issue
+        password_errors = form.errors['password2']
+        self.assertTrue(len(password_errors) > 0, "Password2 field should have error messages")
+        # Check that error message mentions password matching issue
+        error_text = str(password_errors[0]).lower()
+        self.assertTrue('password' in error_text and 'match' in error_text,
+                       "Error message should clearly indicate passwords don't match")
         # Verify error is displayed in rendered HTML (user-facing validation)
         self.assertContains(response, 'password')
         self.assertIn('form', response.context)
@@ -526,7 +540,8 @@ class AuthenticationTest(TestCase):
         Test successful registration automatically logs user in.
 
         Validates the complete happy path: form validation passes, user is created,
-        user is automatically logged in, and success message is displayed.
+        user is automatically logged in, success message is displayed, and
+        post-login state is correctly initialized.
         """
         post_data = {
             'username': 'newuser',
@@ -551,13 +566,25 @@ class AuthenticationTest(TestCase):
         # Verify session shows user is authenticated
         self.assertTrue('_auth_user_id' in self.client.session)
 
+        # Verify post-login user state is correctly initialized
+        self.assertEqual(user.username, 'newuser')
+        self.assertEqual(user.email, 'newuser@example.com')
+        self.assertTrue(user.is_active, "User should be active after registration")
+        self.assertFalse(user.is_staff, "New users should not have staff privileges")
+        self.assertFalse(user.is_superuser, "New users should not have superuser privileges")
+
+        # Verify user can authenticate with provided password
+        self.assertTrue(user.check_password('TestPass123!'),
+                       "User should be able to authenticate with registration password")
+
         # Verify success message is displayed (check for key components, not exact text)
         messages = list(response.context['messages'])
         self.assertEqual(len(messages), 1)
         message_text = str(messages[0])
         # Validate key message components without exact wording dependency
         self.assertIn('newuser', message_text)
-        self.assertTrue('welcome' in message_text.lower() or 'created' in message_text.lower())
+        self.assertTrue('welcome' in message_text.lower() or 'created' in message_text.lower(),
+                       "Success message should welcome user or confirm account creation")
 
     def test_registration_multi_field_errors(self):
         """
@@ -592,11 +619,68 @@ class AuthenticationTest(TestCase):
         self.assertIn('username', form.errors)
         self.assertIn('password2', form.errors)
 
+        # Verify error count - should have at least 2 distinct field errors
+        self.assertGreaterEqual(len(form.errors), 2,
+                               "Form should have errors for multiple fields")
+
+        # Verify each error has descriptive messages
+        username_errors = form.errors['username']
+        self.assertTrue(len(username_errors) > 0, "Username should have error messages")
+        password_errors = form.errors['password2']
+        self.assertTrue(len(password_errors) > 0, "Password2 should have error messages")
+
         # Verify both errors are displayed in rendered HTML
         self.assertContains(response, 'username')
         self.assertContains(response, 'password')
 
         # Verify form is re-rendered with errors
+        self.assertIn('form', response.context)
+
+    def test_registration_weak_password(self):
+        """
+        Test registration with weak password that fails Django's password validators.
+
+        Validates that password strength requirements are enforced and users
+        receive clear feedback about password requirements.
+        """
+        # Submit form with weak password (too short, too common, numeric only)
+        post_data = {
+            'username': 'testuser',
+            'email': 'test@example.com',
+            'password1': '12345',  # Too short, numeric only, common password
+            'password2': '12345'
+        }
+        response = self.client.post(reverse('register'), post_data)
+
+        # Should not redirect (form validation fails)
+        self.assertEqual(response.status_code, 200)
+        # User should not be created
+        self.assertFalse(User.objects.filter(username='testuser').exists())
+
+        # Form should be invalid
+        form = response.context['form']
+        self.assertFalse(form.is_valid())
+
+        # Password field should have validation errors (Django reports on password2)
+        self.assertIn('password2', form.errors)
+        password_errors = form.errors['password2']
+        self.assertTrue(len(password_errors) > 0, "Password should have validation errors")
+
+        # Verify error messages are descriptive (check for common validator messages)
+        all_errors_text = ' '.join(str(e).lower() for e in password_errors)
+        # Should mention at least one password requirement
+        has_length_error = 'character' in all_errors_text or 'short' in all_errors_text
+        has_numeric_error = 'numeric' in all_errors_text
+        has_common_error = 'common' in all_errors_text
+        self.assertTrue(has_length_error or has_numeric_error or has_common_error,
+                       "Error should mention password requirements (length, complexity, etc.)")
+
+        # Verify multiple password validators are triggered
+        self.assertGreaterEqual(len(password_errors), 2,
+                               "Multiple password validators should trigger for weak password")
+
+        # Verify errors are displayed in HTML
+        self.assertContains(response, 'password')
         self.assertIn('form', response.context)
 
 
