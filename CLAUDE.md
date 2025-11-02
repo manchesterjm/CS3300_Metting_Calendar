@@ -164,7 +164,7 @@ python manage.py test calendar_app.test_fuzz --verbosity=2
 python manage.py test calendar_app --verbosity=1
 ```
 
-**Expected Result:** All 141 tests (93 unit + 16 fuzz + 32 other) must pass
+**Expected Result:** All 144 tests (93 unit + 16 fuzz + 35 other) must pass
 
 #### Step 5: Run Mutation Tests
 ```bash
@@ -254,8 +254,8 @@ coverage html  # Report in htmlcov/index.html
 ### Current Test Statistics
 - Unit tests: 93 tests covering models, forms, views, groups, and authentication
 - Fuzz tests: 16 tests with ~350 generated test cases
-- Debug/Integration tests: 32 additional tests
-- Total test cases: 141 tests + 350 fuzz-generated cases
+- Debug/Integration tests: 35 additional tests (includes utils tests)
+- Total test cases: 144 tests + 350 fuzz-generated cases
 - Code coverage: 93%+ on critical modules (models, forms, views), 74% overall
 - Mutation score: 100% (8/8 mutations killed)
 - Test execution time: ~2 seconds
@@ -517,9 +517,62 @@ The codebase includes `print()` statements for debugging form errors. These are 
 - **Auto-reload**: With `DEBUG=True`, Django automatically reloads when files are modified
 - **Security Settings**: Production-ready security headers and session configuration included (see Security Practices section)
 
+## AI Code Review Fixes (November 2025)
+
+### Overview
+After receiving a comprehensive code review from ChatGPT AI, 8 of 14 identified issues have been addressed and merged into the `feature/auto-password-generation` branch.
+
+### Completed Fixes (8/14)
+
+**Critical Priority (3/3 - 100% Complete):**
+1. **Security: Password Generation GET → POST** - Fixed vulnerability where generated passwords could leak through server logs. Changed all password generation endpoints from GET to POST with proper CSRF protection.
+2. **Django Best Practice: Removed null=True from CharField** - Eliminated data inconsistency by removing `null=True` from `description` fields in both Unavailability and GroupUnavailability models. Created data migration to convert existing NULL values to empty strings.
+3. **Error Handling: Specific Exceptions** - Replaced broad `except Exception` with specific `except (smtplib.SMTPException, OSError)` in email backend for better debugging.
+
+**High Priority (4/4 - 100% Complete):**
+4. **Code Duplication: BaseDescriptionForm** - Created mixin base class to eliminate 20 lines of duplicate `clean_description()` validation code across UnavailabilityForm and GroupUnavailabilityForm.
+5. **Date Parsing Error Handling** - Enhanced error handling with explicit POST data validation and improved error messages (changed from generic "invalid date" to format-specific "use YYYY-MM-DD").
+6. **POST Data Validation** - Added explicit checks for missing/empty date fields before parsing to prevent crashes from malformed requests.
+7. **Timezone Handling** - Updated `calculate_free_time_slots()` utility to use timezone-aware datetime objects with `django.utils.timezone.make_aware()` for correct multi-timezone calculations.
+
+**Medium Priority (1/4 - 25% Complete):**
+9. **User Feedback for Empty free_times** - Added positive UX feedback message when all time slots are free (no unavailability entries), replacing blank sections with celebratory "All slots free!" message.
+
+### Remaining Issues (6/14)
+
+**Medium Priority (3 remaining):**
+- **#8**: Extract JavaScript to external files (improves maintainability, enables browser caching)
+- **#10**: Document or refactor admin User customization pattern (potential conflicts with other apps)
+- **#11**: Add JavaScript testing framework (Jest setup + test files)
+
+**Low Priority (3 remaining):**
+- **#12**: Document Pylint disables in STYLE_GUIDE.md (justified in code, needs formal documentation)
+- **#13**: UnsecureEmailBackend (✅ already properly handled with runtime checks)
+- **#14**: Split tests.py into multiple test modules (~1350 lines → test_models.py, test_forms.py, etc.)
+
+### Testing Results After Fixes
+- ✅ All 144 tests passing (93 unit + 16 fuzz + 35 other)
+- ✅ Pylint score: 10.00/10 (no warnings or errors)
+- ✅ Code coverage: 93%+ on critical modules (models, forms, views)
+- ✅ Mutation score: 100% (8/8 mutations killed)
+- ✅ Security scans: 0 vulnerabilities (Bandit, pip-audit, Semgrep)
+
+### Git Commits
+- `372b5ab` - fix: Address critical AI code review findings (#1-3)
+- `037e09b` - fix: Address high-priority AI code review findings (#4-7)
+- `e08dc4f` - fix: Add user feedback for empty free_times in calendar views (#9)
+
+### Documentation References
+- **AI_CODE_REVIEW_FIXES.md**: Detailed tracking of all 14 issues with status, required changes, and progress
+- **GITHUB_ISSUES_TO_CREATE.md**: Templates for creating GitHub issues for remaining 6 items
+- **Branch**: feature/auto-password-generation
+
+---
+
 ## Code Attribution
 
 Comments in the codebase indicate:
 - Django templates and standard files were adapted from course material (CS 2080)
-- ChatGPT was used for troubleshooting code syntax
+- ChatGPT was used for troubleshooting code syntax and comprehensive code review (November 2025)
 - Most customization focused on form handling and database operations
+- Claude Code (Anthropic) used for implementing AI code review fixes
