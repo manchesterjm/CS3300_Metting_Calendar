@@ -1,0 +1,198 @@
+{% extends "calendar_app/base.html" %}
+
+{% block title %}{{ group.name }} Calendar - Meeting Calendar{% endblock %}
+
+{% block extra_style %}
+h1 {
+    color: #2c3e50;
+    margin-bottom: 10px;
+    text-align: center;
+}
+
+.group-header {
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+.group-header p {
+    color: #7f8c8d;
+    font-size: 14px;
+}
+
+.back-link {
+    display: inline-block;
+    padding: 8px 16px;
+    background-color: #95a5a6;
+    color: white;
+    text-decoration: none;
+    border-radius: 4px;
+    font-size: 14px;
+    margin-bottom: 20px;
+    transition: background-color 0.3s;
+}
+
+.back-link:hover {
+    background-color: #7f8c8d;
+}
+
+form {
+    background-color: #f8f9fa;
+    padding: 25px;
+    border-radius: 8px;
+    margin-bottom: 30px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+}
+
+form p {
+    margin-bottom: 15px;
+}
+
+form label {
+    display: inline-block;
+    width: 120px;
+    font-weight: bold;
+    color: #34495e;
+}
+
+form input[type="date"],
+form input[type="time"],
+form input[type="text"] {
+    padding: 8px;
+    border: 1px solid #bdc3c7;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+form input[type="text"] {
+    width: 300px;
+    max-width: 100%;
+}
+
+form button {
+    padding: 10px 20px;
+    margin: 5px 5px 5px 0;
+    background-color: #1abc9c;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background-color 0.3s;
+}
+
+form button:hover {
+    background-color: #16a085;
+}
+
+h2 {
+    color: #2c3e50;
+    margin-top: 30px;
+    margin-bottom: 15px;
+}
+
+hr {
+    border: none;
+    border-top: 2px solid #ecf0f1;
+    margin: 30px 0;
+}
+
+ul {
+    list-style-position: inside;
+    color: #34495e;
+}
+
+ul li {
+    padding: 5px 0;
+}
+
+.info-box {
+    background-color: #e8f4f8;
+    border-left: 4px solid #3498db;
+    padding: 15px;
+    margin-bottom: 20px;
+    border-radius: 4px;
+}
+
+.info-box p {
+    margin: 5px 0;
+    color: #2c3e50;
+    font-size: 14px;
+}
+
+@media (max-width: 768px) {
+    form {
+        padding: 15px;
+    }
+
+    form label {
+        width: 100%;
+        display: block;
+        margin-bottom: 5px;
+    }
+
+    form input[type="text"] {
+        width: 100%;
+    }
+
+    form button {
+        width: 100%;
+        margin: 5px 0;
+    }
+}
+{% endblock %}
+
+{% block content %}
+    <div class="group-header">
+        <h1>{{ group.name }} - Group Calendar</h1>
+        <p>Shared calendar for all group members</p>
+    </div>
+
+    <a href="{% url 'group_detail' group.id %}" class="back-link">Back to Group Details</a>
+
+    <div class="info-box">
+        <p><strong>Note:</strong> All group members can add unavailability entries.</p>
+        <p>Free times shown are when ALL group members are available.</p>
+        <p>You can only delete entries you created.</p>
+    </div>
+
+    <form method="post">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <div>
+            <button type="submit" name="submit_unavailability">Submit Unavailability</button>
+        </div>
+        <div>
+            <button type="submit" name="show_free_times">Show Free Times</button>
+        </div>
+        <div>
+            <button type="submit" name="show_last_five">Show Last 5 Entries</button>
+        </div>
+    </form>
+
+    {% if free_times %}
+        <hr>
+        <h2>Free Times on {{ form.data.date }}:</h2>
+        {% if free_times %}
+            <ul>
+                {% for time in free_times %}
+                    <li>{{ time }}</li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <p>No free time slots available.</p>
+        {% endif %}
+    {% endif %}
+
+    {% if form_delete.fields.entry_ids.choices %}
+        <hr>
+        <h2>Delete Selected Entries</h2>
+        <p style="color: #7f8c8d; font-size: 14px; margin-bottom: 10px;">
+            Note: You can only delete your own entries.
+        </p>
+        <form method="post">
+            {% csrf_token %}
+            {{ form_delete.entry_ids }}
+            <button type="submit" name="delete_selected">Delete Selected</button>
+        </form>
+    {% endif %}
+{% endblock %}

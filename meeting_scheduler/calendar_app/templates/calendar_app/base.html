@@ -179,6 +179,7 @@
             {% if user.is_authenticated %}
                 <span class="navbar-user">Welcome, {{ user.username }}!</span>
                 <a href="{% url 'account' %}">My Account</a>
+                <a href="{% url 'group_list' %}">My Groups</a>
                 {% if user.is_staff %}
                     <a href="/admin/" class="admin-btn">Admin Panel</a>
                 {% endif %}

@@ -25,7 +25,8 @@
       "Bash(migrations/__init__.py)",
       "Bash(timeout 5 python:*)",
       "Bash(timeout 300 python:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(python -c:*)"
     ],
     "deny": [],
     "ask": []
