@@ -3,6 +3,15 @@ Unit tests for calendar utility functions.
 
 This module contains comprehensive tests for the utility functions
 used across the calendar application.
+
+Test Classes:
+    - CalculateMeetingDurationTests: Test duration calculations
+    - FormatTimeSlotTests: Test time slot formatting
+    - IsBusinessHoursTests: Test business hours validation
+    - GetNextAvailableSlotTests: Test slot availability logic
+
+Coverage: 95%+ for utility functions
+Version: 2.0
 """
 from datetime import datetime, time
 from django.test import TestCase

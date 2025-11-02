@@ -5,6 +5,14 @@ This module defines forms for managing unavailability entries, including
 creation, validation, and deletion of time periods when users are unavailable
 for meetings. Also includes forms for group management and shared calendars.
 
+Forms:
+    - UnavailabilityForm: Create/edit unavailability entries
+    - DeleteSelectedForm: Bulk delete unavailability entries
+    - GroupCreateForm: Create new calendar groups
+    - AddMemberForm: Add users to groups
+    - GroupUnavailabilityForm: Group calendar entries
+    - GroupDeleteSelectedForm: Bulk delete group entries
+
 Security Note: All forms use Django's built-in CSRF protection and input sanitization.
 """
 import datetime

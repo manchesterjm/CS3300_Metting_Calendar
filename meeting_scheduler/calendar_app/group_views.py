@@ -4,7 +4,18 @@ Django views for group calendar functionality.
 This module contains views for managing groups and group calendars,
 including group creation, member management, and shared calendar functionality.
 
+Views:
+    - group_list_view: Display all groups for current user
+    - group_create_view: Create new calendar group
+    - group_detail_view: View group details and members
+    - group_calendar_view: Manage group unavailability entries
+    - group_add_member_view: Add members to group
+    - group_remove_member_view: Remove members from group
+    - group_delete_view: Delete entire group
+
 Features: Role-based access control (owner vs member permissions).
+Version: 2.0
+Security: All views require authentication and verify group membership
 """
 import datetime
 from django.contrib import messages

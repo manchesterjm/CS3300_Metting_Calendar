@@ -3,8 +3,15 @@ Utility functions for the calendar application.
 
 This module contains helper functions used across the calendar app.
 
+Functions:
+    - calculate_meeting_duration: Calculate duration between times
+    - format_time_slot: Format time slots for display
+    - is_business_hours: Check if time is within business hours
+    - get_next_available_slot: Find next available meeting slot
+
 Performance Note: All functions are designed to be stateless and thread-safe
 for optimal performance in multi-user environments.
+Version: 2.0
 """
 from datetime import datetime, timedelta
 

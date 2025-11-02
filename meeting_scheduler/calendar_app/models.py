@@ -4,6 +4,11 @@ Django models for the calendar application.
 This module defines the database models for tracking unavailability entries
 in the meeting scheduler application, including support for shared group calendars.
 
+Models:
+    - Unavailability: Individual user unavailability periods
+    - Group: Shared calendar groups for team scheduling
+    - GroupUnavailability: Unavailability entries for group calendars
+
 Version: 2.0 (Group Calendar Support)
 Last Updated: 2025-01-11
 """
