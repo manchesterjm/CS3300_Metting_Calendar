@@ -24,7 +24,6 @@ jobs:
   review:
     name: Review changes with OpenAI
     runs-on: ubuntu-latest
-    if: false  # Temporarily disabled - OpenAI quota exceeded
     steps:
       - name: Checkout
         uses: actions/checkout@v4
