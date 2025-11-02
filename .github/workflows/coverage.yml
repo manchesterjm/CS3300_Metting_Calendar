@@ -1,5 +1,6 @@
 name: Run Django Tests with Coverage
 
+# Runs on all pushes and pull requests to any branch
 on:
   push:
     branches: ["**"]
