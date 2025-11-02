@@ -9,17 +9,21 @@ Views:
     - login_view: User authentication
     - logout_view: Session termination
     - account_view: User profile management
+    - change_password_view: User password change
+    - generate_password_api: JSON API for password generation
 
 Security Features: Login required decorators, password validation, session management.
 """
 import logging
 from django.contrib import messages
-from django.contrib.auth import login, logout
+from django.contrib.auth import login, logout, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.forms import PasswordChangeForm
 from django.db import DatabaseError, IntegrityError, transaction
 from django.shortcuts import render, redirect
-from django.http import HttpResponseServerError
+from django.http import HttpResponseServerError, JsonResponse
 from .auth_forms import UserRegistrationForm, CustomAuthenticationForm, UserProfileForm
+from .utils import generate_password
 
 # Configure logger for authentication module
 logger = logging.getLogger(__name__)
@@ -36,10 +40,10 @@ def register_view(request):
         request: HttpRequest object.
 
     Returns:
-        HttpResponse: Rendered registration template or redirect to calendar.
+        HttpResponse: Rendered registration template or redirect to home.
     """
     if request.user.is_authenticated:
-        return redirect('calendar')
+        return redirect('home')
 
     if request.method == 'POST':
         form = UserRegistrationForm(request.POST)
@@ -71,7 +75,7 @@ def register_view(request):
                     f'Welcome {user.username}! Your account has been created successfully.'
                 )
                 logger.info('New user registered and logged in: %s', user.username)
-                return redirect('calendar')
+                return redirect('home')
     else:
         form = UserRegistrationForm()
 
@@ -83,16 +87,16 @@ def login_view(request):
     Handle user login.
 
     Displays login form on GET request and processes authentication on POST.
-    Redirects to calendar page after successful login.
+    Redirects to home page after successful login.
 
     Args:
         request: HttpRequest object.
 
     Returns:
-        HttpResponse: Rendered login template or redirect to calendar.
+        HttpResponse: Rendered login template or redirect to home.
     """
     if request.user.is_authenticated:
-        return redirect('calendar')
+        return redirect('home')
 
     if request.method == 'POST':
         form = CustomAuthenticationForm(request, data=request.POST)
@@ -100,8 +104,8 @@ def login_view(request):
             user = form.get_user()
             login(request, user)
             messages.success(request, f'Welcome back, {user.username}!')
-            # Redirect to 'next' parameter if provided, otherwise to calendar
-            next_url = request.GET.get('next', 'calendar')
+            # Redirect to 'next' parameter if provided, otherwise to home
+            next_url = request.GET.get('next', 'home')
             return redirect(next_url)
         messages.error(request, 'Invalid username or password.')
     else:
@@ -171,3 +175,59 @@ def account_view(request):
         'unavailability_count': unavailability_count,
     }
     return render(request, 'calendar_app/account.html', context)
+
+
+@login_required
+def change_password_view(request):
+    """
+    Handle user password change.
+
+    Displays password change form and processes password updates.
+    Keeps user logged in after successful password change.
+
+    Args:
+        request: HttpRequest object.
+
+    Returns:
+        HttpResponse: Rendered password change template or redirect to account page.
+    """
+    if request.method == 'POST':
+        form = PasswordChangeForm(request.user, request.POST)
+        if form.is_valid():
+            try:
+                user = form.save()
+                # Update the session to prevent logout after password change
+                update_session_auth_hash(request, user)
+                messages.success(request, 'Your password has been changed successfully.')
+                logger.info('User %s changed their password', request.user.username)
+                return redirect('account')
+            except DatabaseError as e:
+                logger.error('Database error changing password for %s: %s', request.user.username, e)
+                messages.error(request, 'An error occurred while changing your password. Please try again later.')
+    else:
+        form = PasswordChangeForm(request.user)
+
+    return render(request, 'calendar_app/change_password.html', {'form': form})
+
+
+def generate_password_api(request):
+    """
+    API endpoint to generate a random secure password.
+
+    Returns a JSON response with a 16-character password generated
+    using the CS3080 password generation algorithm.
+
+    No authentication required - used for registration and password reset forms.
+
+    Args:
+        request: HttpRequest object.
+
+    Returns:
+        JsonResponse: {'password': '<generated_password>'}
+    """
+    try:
+        password = generate_password(length=16)
+        return JsonResponse({'password': password})
+    except ValueError as e:
+        logger.error('Password generation error: %s', e)
+        return JsonResponse({'error': str(e)}, status=400)

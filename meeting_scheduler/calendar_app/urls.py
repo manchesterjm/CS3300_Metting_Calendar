@@ -9,8 +9,11 @@ Last Updated: 2025-01-11
 """
 from django.urls import path
 from django.contrib.auth import views as auth_views
-from .views import calendar_view
-from .auth_views import login_view, logout_view, register_view, account_view
+from .views import home_view, calendar_view
+from .auth_views import (
+    login_view, logout_view, register_view, account_view,
+    change_password_view, generate_password_api
+)
 from .group_views import (
     group_list_view,
     group_create_view,
@@ -22,11 +25,16 @@ from .group_views import (
 )
 
 urlpatterns = [
-    path('', calendar_view, name='calendar'),
+    path('', home_view, name='home'),
+    path('personal-calendar/', calendar_view, name='calendar'),
     path('login/', login_view, name='login'),
     path('logout/', logout_view, name='logout'),
     path('register/', register_view, name='register'),
     path('account/', account_view, name='account'),
+    path('account/change-password/', change_password_view, name='change_password'),
+
+    # API endpoints
+    path('api/generate-password/', generate_password_api, name='generate_password_api'),
 
     # Group URLs
     path('groups/', group_list_view, name='group_list'),

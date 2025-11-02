@@ -8,12 +8,14 @@ Functions:
     - format_time_slot: Format time slots for display
     - is_business_hours: Check if time is within business hours
     - get_next_available_slot: Find next available meeting slot
+    - generate_password: Generate secure random password
 
 Performance Note: All functions are designed to be stateless and thread-safe
 for optimal performance in multi-user environments.
-Version: 2.0
+Version: 2.1
 """
 from datetime import datetime, timedelta
+import secrets
 
 
 def calculate_meeting_duration(start_time, end_time):
@@ -67,7 +69,7 @@ def is_business_hours(time_slot):
     Returns:
         bool: True if within business hours, False otherwise
     """
-    hour, minute = map(int, time_slot.split(':'))
+    hour, _ = map(int, time_slot.split(':'))
     return 8 <= hour < 20
 
 
@@ -91,3 +93,86 @@ def get_next_available_slot(current_time, slot_duration=30):
     next_slot += timedelta(minutes=minutes)
 
     return next_slot.strftime('%H:%M')
+
+
+def generate_password(length=16):
+    """
+    Generate a cryptographically secure random password with unique characters.
+
+    Based on CS3080 password generation logic. Ensures password contains:
+    - At least 2 numbers (2-9, excludes 0 and 1)
+    - At least 2 lowercase letters (excludes 'l' and 'i' for clarity)
+    - At least 2 uppercase letters (excludes 'O' and 'I' for clarity)
+    - At least 2 special characters from: @#$%&?*
+
+    Uses Python's secrets module for cryptographically secure random generation.
+
+    Args:
+        length (int): Length of password to generate. Must be >= 8. Default is 16.
+
+    Returns:
+        str: A randomly generated password of specified length.
+
+    Raises:
+        ValueError: If length is less than 8 or exceeds available unique characters.
+    """
+    # Define the character sets (matching CS3080 passwords.py logic)
+    numbers = [str(num) for num in range(2, 10)]  # 2-9 (no 0, 1)
+    lower = [chr(i) for i in range(ord('a'), ord('z') + 1) if chr(i) not in ('l', 'i')]  # a-z except l, i
+    upper = [chr(i) for i in range(ord('A'), ord('Z') + 1) if chr(i) not in ('O', 'I')]  # A-Z except O, I
+    punct = ['@', '#', '$', '%', '&', '?', '*']  # Special characters
+
+    # Validate password length
+    total_unique_chars = len(set(numbers + lower + upper + punct))
+    if length < 8:
+        raise ValueError("Password length must be at least 8 characters.")
+    if length > total_unique_chars:
+        raise ValueError(f"Password length cannot exceed {total_unique_chars} (total unique characters).")
+
+    # Sample 2 unique characters from each category using secrets module
+    password_chars = []
+
+    # Add 2 unique numbers
+    available_numbers = numbers.copy()
+    for _ in range(2):
+        char = secrets.choice(available_numbers)
+        password_chars.append(char)
+        available_numbers.remove(char)
+
+    # Add 2 unique lowercase letters
+    available_lower = lower.copy()
+    for _ in range(2):
+        char = secrets.choice(available_lower)
+        password_chars.append(char)
+        available_lower.remove(char)
+
+    # Add 2 unique uppercase letters
+    available_upper = upper.copy()
+    for _ in range(2):
+        char = secrets.choice(available_upper)
+        password_chars.append(char)
+        available_upper.remove(char)
+
+    # Add 2 unique special characters
+    available_punct = punct.copy()
+    for _ in range(2):
+        char = secrets.choice(available_punct)
+        password_chars.append(char)
+        available_punct.remove(char)
+
+    # Get remaining characters needed to reach desired length
+    all_chars = numbers + lower + upper + punct
+    remaining_needed = length - 8
+
+    for _ in range(remaining_needed):
+        # Pick from all available chars, may include duplicates
+        char = secrets.choice(all_chars)
+        password_chars.append(char)
+
+    # Shuffle the password using Fisher-Yates shuffle with secrets module
+    for i in range(len(password_chars) - 1, 0, -1):
+        j = secrets.randbelow(i + 1)
+        password_chars[i], password_chars[j] = password_chars[j], password_chars[i]
+
+    # Convert list to string
+    return ''.join(password_chars)

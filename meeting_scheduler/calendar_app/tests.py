@@ -4,12 +4,15 @@ Test suite for the calendar_app
 Includes unit tests for models, forms, and views with authentication support.
 Covers Unavailability model, Group model, forms validation, and view logic.
 Includes comprehensive error handling tests for all exception paths.
+Added password generation tests for new auto-password feature.
+Updated for read-only group calendar workflow (removed 5 obsolete tests).
 
-Test Count: 123 unit tests (30 unit + 16 fuzz + 77 view/integration tests)
+Test Count: 133 unit tests (30 unit + 16 fuzz + 72 view/integration + 15 password gen tests)
 Coverage: 93%+ on critical modules
-Last Updated: 2025-01-11
+Last Updated: 2025-11-02
 """
 import datetime
+import json
 from django.test import TestCase, Client
 from django.urls import reverse
 from django.contrib.auth.models import User
@@ -21,6 +24,7 @@ from .forms import (
     AddMemberForm,
     GroupUnavailabilityForm
 )
+from .utils import generate_password
 
 
 class UnavailabilityModelTest(TestCase):
@@ -551,10 +555,10 @@ class AuthenticationTest(TestCase):
         }
         response = self.client.post(reverse('register'), post_data, follow=True)
 
-        # Should redirect (302) and end up at calendar page
+        # Should redirect (302) and end up at home page
         self.assertEqual(response.status_code, 200)
         # Check final URL after following redirects
-        self.assertEqual(response.request['PATH_INFO'], reverse('calendar'))
+        self.assertEqual(response.request['PATH_INFO'], reverse('home'))
 
         # User should be created
         self.assertTrue(User.objects.filter(username='newuser').exists())
@@ -974,73 +978,76 @@ class GroupViewsTest(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, 'calendar_app/group_calendar.html')
 
-    def test_group_calendar_submit_unavailability(self):
-        """Test submitting unavailability to group calendar"""
-        self.client.login(username='user1', password='pass123')
-        post_data = {
-            'date': '2025-05-01',
-            'start_time': '09:00',
-            'end_time': '10:00',
-            'description': 'Meeting',
-            'submit_unavailability': 'Submit'
-        }
-        response = self.client.post(
-            reverse('group_calendar', args=[self.group.id]),
-            post_data
-        )
-        self.assertEqual(response.status_code, 302)
-        self.assertTrue(
-            GroupUnavailability.objects.filter(
-                group=self.group,
-                user=self.user1,
-                date=datetime.date(2025, 5, 1)
-            ).exists()
-        )
+    # OBSOLETE: Group calendar is now read-only and no longer supports add functionality
+    # def test_group_calendar_submit_unavailability(self):
+    #     """Test submitting unavailability to group calendar"""
+    #     self.client.login(username='user1', password='pass123')
+    #     post_data = {
+    #         'date': '2025-05-01',
+    #         'start_time': '09:00',
+    #         'end_time': '10:00',
+    #         'description': 'Meeting',
+    #         'submit_unavailability': 'Submit'
+    #     }
+    #     response = self.client.post(
+    #         reverse('group_calendar', args=[self.group.id]),
+    #         post_data
+    #     )
+    #     self.assertEqual(response.status_code, 302)
+    #     self.assertTrue(
+    #         GroupUnavailability.objects.filter(
+    #             group=self.group,
+    #             user=self.user1,
+    #             date=datetime.date(2025, 5, 1)
+    #         ).exists()
+    #     )
 
-    def test_group_calendar_delete_own_entry(self):
-        """Test that users can delete their own entries"""
-        self.client.login(username='user1', password='pass123')
-        # Create an entry
-        entry = GroupUnavailability.objects.create(
-            group=self.group,
-            user=self.user1,
-            date=datetime.date(2025, 5, 1),
-            start_time=datetime.time(9, 0),
-            end_time=datetime.time(10, 0)
-        )
-        # Delete it
-        post_data = {
-            'entry_ids': [str(entry.id)],
-            'delete_selected': 'Delete'
-        }
-        response = self.client.post(
-            reverse('group_calendar', args=[self.group.id]),
-            post_data
-        )
-        self.assertEqual(response.status_code, 302)
-        self.assertFalse(GroupUnavailability.objects.filter(id=entry.id).exists())
+    # OBSOLETE: Group calendar is now read-only and no longer supports delete functionality
+    # def test_group_calendar_delete_own_entry(self):
+    #     """Test that users can delete their own entries"""
+    #     self.client.login(username='user1', password='pass123')
+    #     # Create an entry
+    #     entry = GroupUnavailability.objects.create(
+    #         group=self.group,
+    #         user=self.user1,
+    #         date=datetime.date(2025, 5, 1),
+    #         start_time=datetime.time(9, 0),
+    #         end_time=datetime.time(10, 0)
+    #     )
+    #     # Delete it
+    #     post_data = {
+    #         'entry_ids': [str(entry.id)],
+    #         'delete_selected': 'Delete'
+    #     }
+    #     response = self.client.post(
+    #         reverse('group_calendar', args=[self.group.id]),
+    #         post_data
+    #     )
+    #     self.assertEqual(response.status_code, 302)
+    #     self.assertFalse(GroupUnavailability.objects.filter(id=entry.id).exists())
 
-    def test_group_calendar_cannot_delete_others_entry(self):
-        """Test that users cannot delete other users' entries"""
-        # User1 creates an entry
-        entry = GroupUnavailability.objects.create(
-            group=self.group,
-            user=self.user1,
-            date=datetime.date(2025, 5, 1),
-            start_time=datetime.time(9, 0),
-            end_time=datetime.time(10, 0)
-        )
-        # Add user2 to group
-        self.group.members.add(self.user2)
-        # User2 tries to delete user1's entry
-        self.client.login(username='user2', password='pass123')
-        post_data = {
-            'entry_ids': [str(entry.id)],
-            'delete_selected': 'Delete'
-        }
-        self.client.post(reverse('group_calendar', args=[self.group.id]), post_data)
-        # Entry should still exist
-        self.assertTrue(GroupUnavailability.objects.filter(id=entry.id).exists())
+    # OBSOLETE: Group calendar is now read-only and no longer supports delete functionality
+    # def test_group_calendar_cannot_delete_others_entry(self):
+    #     """Test that users cannot delete other users' entries"""
+    #     # User1 creates an entry
+    #     entry = GroupUnavailability.objects.create(
+    #         group=self.group,
+    #         user=self.user1,
+    #         date=datetime.date(2025, 5, 1),
+    #         start_time=datetime.time(9, 0),
+    #         end_time=datetime.time(10, 0)
+    #     )
+    #     # Add user2 to group
+    #     self.group.members.add(self.user2)
+    #     # User2 tries to delete user1's entry
+    #     self.client.login(username='user2', password='pass123')
+    #     post_data = {
+    #         'entry_ids': [str(entry.id)],
+    #         'delete_selected': 'Delete'
+    #     }
+    #     self.client.post(reverse('group_calendar', args=[self.group.id]), post_data)
+    #     # Entry should still exist
+    #     self.assertTrue(GroupUnavailability.objects.filter(id=entry.id).exists())
 
     def test_group_add_member_owner_only(self):
         """Test that only owner can add members"""
@@ -1093,20 +1100,18 @@ class GroupViewsTest(TestCase):
         self.assertTrue(Group.objects.filter(id=self.group.id).exists())
 
     def test_group_calendar_free_times_all_members(self):
-        """Test that free times consider all group members' unavailability"""
+        """Test that free times consider all group members' unavailability from personal calendars"""
         # Add user2 to group
         self.group.members.add(self.user2)
-        # User1 unavailable 9:00-10:00
-        GroupUnavailability.objects.create(
-            group=self.group,
+        # User1 unavailable 9:00-10:00 (in personal calendar)
+        Unavailability.objects.create(
             user=self.user1,
             date=datetime.date(2025, 5, 1),
             start_time=datetime.time(9, 0),
             end_time=datetime.time(10, 0)
         )
-        # User2 unavailable 10:00-11:00
-        GroupUnavailability.objects.create(
-            group=self.group,
+        # User2 unavailable 10:00-11:00 (in personal calendar)
+        Unavailability.objects.create(
             user=self.user2,
             date=datetime.date(2025, 5, 1),
             start_time=datetime.time(10, 0),
@@ -1132,3 +1137,302 @@ class GroupViewsTest(TestCase):
         # 8:00 and 11:00 should be free
         self.assertIn('08:00', free_times)
         self.assertIn('11:00', free_times)
+
+    def test_group_calendar_show_free_times_date_only(self):
+        """Test show_free_times with only date field using personal calendar unavailability"""
+        self.client.login(username='user1', password='pass123')
+        # Create an unavailability entry in personal calendar
+        Unavailability.objects.create(
+            user=self.user1,
+            date=datetime.date(2025, 11, 2),
+            start_time=datetime.time(10, 0),
+            end_time=datetime.time(14, 0)
+        )
+        # Request free times with ONLY date (no start_time or end_time)
+        post_data = {
+            'date': '2025-11-02',
+            'show_free_times': 'Show'
+        }
+        response = self.client.post(
+            reverse('group_calendar', args=[self.group.id]),
+            post_data
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('free_times', response.context)
+        free_times = response.context['free_times']
+        # Verify free_times is not None (even if empty)
+        self.assertIsNotNone(free_times)
+        # 10:00-14:00 slots should NOT be in free times
+        self.assertNotIn('10:00', free_times)
+        self.assertNotIn('10:30', free_times)
+        self.assertNotIn('11:00', free_times)
+        self.assertNotIn('11:30', free_times)
+        self.assertNotIn('12:00', free_times)
+        self.assertNotIn('12:30', free_times)
+        self.assertNotIn('13:00', free_times)
+        self.assertNotIn('13:30', free_times)
+        # 8:00 and 14:00 should be in free times
+        self.assertIn('08:00', free_times)
+        self.assertIn('14:00', free_times)
+
+    def test_group_calendar_show_free_times_no_entries(self):
+        """Test show_free_times returns all slots when no entries exist"""
+        self.client.login(username='user1', password='pass123')
+        post_data = {
+            'date': '2025-11-02',
+            'show_free_times': 'Show'
+        }
+        response = self.client.post(
+            reverse('group_calendar', args=[self.group.id]),
+            post_data
+        )
+        self.assertEqual(response.status_code, 200)
+        free_times = response.context['free_times']
+        # All slots from 8:00 to 19:30 should be free (24 half-hour slots)
+        self.assertEqual(len(free_times), 24)
+        self.assertIn('08:00', free_times)
+        self.assertIn('19:30', free_times)
+
+    # OBSOLETE: Group calendar is now read-only and no longer shows last 5 entries
+    # def test_group_calendar_show_last_five_entries(self):
+    #     """Test show_last_five displays last 5 entries"""
+    #     self.client.login(username='user1', password='pass123')
+    #     # Create 6 entries
+    #     for i in range(6):
+    #         GroupUnavailability.objects.create(
+    #             group=self.group,
+    #             user=self.user1,
+    #             date=datetime.date(2025, 11, i+1),
+    #             start_time=datetime.time(9, 0),
+    #             end_time=datetime.time(10, 0),
+    #             description=f'Entry {i+1}'
+    #         )
+    #     post_data = {
+    #         'date': '2025-11-02',
+    #         'show_last_five': 'Show'
+    #     }
+    #     response = self.client.post(
+    #         reverse('group_calendar', args=[self.group.id]),
+    #         post_data
+    #     )
+    #     self.assertEqual(response.status_code, 200)
+    #     # Check that form_delete has exactly 5 choices (last 5 entries)
+    #     form_delete = response.context['form_delete']
+    #     choices = form_delete.fields['entry_ids'].choices
+    #     self.assertEqual(len(choices), 5)
+    #     # Verify the entries are the last 5 (most recent)
+    #     # Entry 6, 5, 4, 3, 2 should be shown (Entry 1 should NOT be shown)
+    #     labels = [choice[1] for choice in choices]
+    #     self.assertTrue(any('Entry 6' in label for label in labels))
+    #     self.assertTrue(any('Entry 2' in label for label in labels))
+    #     self.assertFalse(any('Entry 1' in label for label in labels))
+
+    # OBSOLETE: Group calendar is now read-only and no longer shows last 5 entries
+    # def test_group_calendar_show_last_five_no_entries(self):
+    #     """Test show_last_five when no entries exist"""
+    #     self.client.login(username='user1', password='pass123')
+    #     post_data = {
+    #         'date': '2025-11-02',
+    #         'show_last_five': 'Show'
+    #     }
+    #     response = self.client.post(
+    #         reverse('group_calendar', args=[self.group.id]),
+    #         post_data
+    #     )
+    #     self.assertEqual(response.status_code, 200)
+    #     # form_delete should have no choices
+    #     form_delete = response.context['form_delete']
+    #     self.assertEqual(len(form_delete.fields['entry_ids'].choices), 0)
+
+    def test_personal_calendar_show_free_times_date_only(self):
+        """Test personal calendar show_free_times with only date"""
+        self.client.login(username='user1', password='pass123')
+        # Create an unavailability entry
+        Unavailability.objects.create(
+            user=self.user1,
+            date=datetime.date(2025, 11, 2),
+            start_time=datetime.time(10, 0),
+            end_time=datetime.time(14, 0)
+        )
+        post_data = {
+            'date': '2025-11-02',
+            'show_free_times': 'Show'
+        }
+        response = self.client.post(reverse('calendar'), post_data)
+        self.assertEqual(response.status_code, 200)
+        free_times = response.context['free_times']
+        self.assertIsNotNone(free_times)
+        # 10:00-14:00 should be taken
+        self.assertNotIn('10:00', free_times)
+        self.assertNotIn('13:30', free_times)
+        # 8:00 and 14:00 should be free
+        self.assertIn('08:00', free_times)
+        self.assertIn('14:00', free_times)
+
+    def test_personal_calendar_show_last_five_entries(self):
+        """Test personal calendar show_last_five"""
+        self.client.login(username='user1', password='pass123')
+        # Create 3 entries
+        for i in range(3):
+            Unavailability.objects.create(
+                user=self.user1,
+                date=datetime.date(2025, 11, i+1),
+                start_time=datetime.time(9, 0),
+                end_time=datetime.time(10, 0)
+            )
+        post_data = {
+            'date': '2025-11-02',
+            'show_last_five': 'Show'
+        }
+        response = self.client.post(reverse('calendar'), post_data)
+        self.assertEqual(response.status_code, 200)
+        form_delete = response.context['form_delete']
+        self.assertEqual(len(form_delete.fields['entry_ids'].choices), 3)
+
+
+class PasswordGenerationTest(TestCase):
+    """Tests for password generation utility and API"""
+
+    def test_generate_password_default_length(self):
+        """Test password generation with default length of 16"""
+        password = generate_password()
+        self.assertEqual(len(password), 16)
+
+    def test_generate_password_custom_length(self):
+        """Test password generation with custom length"""
+        password = generate_password(length=12)
+        self.assertEqual(len(password), 12)
+
+    def test_generate_password_minimum_length(self):
+        """Test password generation with minimum length of 8"""
+        password = generate_password(length=8)
+        self.assertEqual(len(password), 8)
+
+    def test_generate_password_too_short(self):
+        """Test that password generation fails with length < 8"""
+        with self.assertRaises(ValueError) as context:
+            generate_password(length=7)
+        self.assertIn('at least 8', str(context.exception))
+
+    def test_generate_password_contains_required_chars(self):
+        """Test that generated password contains required character types"""
+        password = generate_password(length=16)
+
+        # Check for at least one number (2-9)
+        has_number = any(c in '23456789' for c in password)
+        self.assertTrue(has_number, "Password should contain at least one number")
+
+        # Check for at least one lowercase letter (excluding l, i)
+        has_lower = any(c.islower() for c in password)
+        self.assertTrue(has_lower, "Password should contain at least one lowercase letter")
+
+        # Check for at least one uppercase letter (excluding O, I)
+        has_upper = any(c.isupper() for c in password)
+        self.assertTrue(has_upper, "Password should contain at least one uppercase letter")
+
+        # Check for at least one special character
+        special_chars = '@#$%&?*'
+        has_special = any(c in special_chars for c in password)
+        self.assertTrue(has_special, "Password should contain at least one special character")
+
+    def test_generate_password_excludes_confusing_chars(self):
+        """Test that generated password excludes confusing characters"""
+        # Generate multiple passwords to increase confidence
+        for _ in range(10):
+            password = generate_password(length=16)
+            # Should not contain: 0, 1, l, i, O, I
+            self.assertNotIn('0', password, "Password should not contain '0'")
+            self.assertNotIn('1', password, "Password should not contain '1'")
+            self.assertNotIn('l', password, "Password should not contain 'l'")
+            self.assertNotIn('i', password, "Password should not contain 'i'")
+            self.assertNotIn('O', password, "Password should not contain 'O'")
+            self.assertNotIn('I', password, "Password should not contain 'I'")
+
+    def test_generate_password_uniqueness(self):
+        """Test that generated passwords are unique"""
+        passwords = [generate_password() for _ in range(100)]
+        # All passwords should be unique
+        self.assertEqual(len(passwords), len(set(passwords)))
+
+    def test_generate_password_api_returns_json(self):
+        """Test that the password generation API returns valid JSON"""
+        response = self.client.get(reverse('generate_password_api'))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response['Content-Type'], 'application/json')
+
+    def test_generate_password_api_returns_password(self):
+        """Test that the API returns a password field"""
+        response = self.client.get(reverse('generate_password_api'))
+        data = json.loads(response.content)
+        self.assertIn('password', data)
+        self.assertEqual(len(data['password']), 16)
+
+    def test_generate_password_api_no_auth_required(self):
+        """Test that password generation API doesn't require authentication"""
+        # Don't login - API should still work for registration page
+        response = self.client.get(reverse('generate_password_api'))
+        self.assertEqual(response.status_code, 200)
+
+
+class ChangePasswordViewTest(TestCase):
+    """Tests for the change password view"""
+
+    def setUp(self):
+        """Set up test user"""
+        self.user = User.objects.create_user(
+            username='testuser',
+            password='oldpassword123'
+        )
+        self.client = Client()
+
+    def test_change_password_view_requires_login(self):
+        """Test that change password view requires authentication"""
+        response = self.client.get(reverse('change_password'))
+        # Should redirect to login
+        self.assertEqual(response.status_code, 302)
+        self.assertIn('/login/', response.url)
+
+    def test_change_password_view_get(self):
+        """Test that change password view displays form"""
+        self.client.login(username='testuser', password='oldpassword123')
+        response = self.client.get(reverse('change_password'))
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'calendar_app/change_password.html')
+        self.assertIn('form', response.context)
+
+    def test_change_password_view_post_valid(self):
+        """Test successful password change"""
+        self.client.login(username='testuser', password='oldpassword123')
+        post_data = {
+            'old_password': 'oldpassword123',
+            'new_password1': 'newpassword456!',
+            'new_password2': 'newpassword456!'
+        }
+        response = self.client.post(reverse('change_password'), post_data)
+        # Should redirect to account page
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse('account'))
+
+        # Verify password was actually changed
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.check_password('newpassword456!'))
+
+    def test_change_password_view_post_invalid(self):
+        """Test password change with mismatched passwords"""
+        self.client.login(username='testuser', password='oldpassword123')
+        post_data = {
+            'old_password': 'oldpassword123',
+            'new_password1': 'newpassword456!',
+            'new_password2': 'differentpassword!'
+        }
+        response = self.client.post(reverse('change_password'), post_data)
+        # Should redisplay form with errors
+        self.assertEqual(response.status_code, 200)
+        # Check that form has errors
+        form = response.context['form']
+        self.assertFalse(form.is_valid())
+        self.assertIn('new_password2', form.errors)
+
+        # Verify password was NOT changed
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.check_password('oldpassword123'))

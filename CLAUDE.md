@@ -30,6 +30,10 @@ CS3300_project/
 
 ## Initial Setup
 
+### Documentation review
+review all documents *.md prior to proceeding
+ensure that guidance in these documents are adhered to prior to proceeding
+
 ### Prerequisites
 Install Python 3, pip, and virtual environment tools:
 ```bash
@@ -107,10 +111,11 @@ python manage.py shell
 
 ## Testing Workflow
 
-**IMPORTANT: All tests (unit, fuzz, and mutation) MUST be run every time code is updated.**
+**IMPORTANT: All tests (pylint, unit, fuzz, and mutation) MUST be run every time code is updated.**
 
 ### Required Testing Process
 
+If a test server is being run, kill that process before proceeding with any testing to free up resources
 When updating code, follow this mandatory workflow:
 
 #### Step 1: Run Pylint

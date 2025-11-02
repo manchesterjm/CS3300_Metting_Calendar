@@ -60,17 +60,22 @@ class UnavailabilityForm(forms.ModelForm):
 
     class Meta:
         model = Unavailability
-        fields = ['date', 'start_time', 'end_time']
+        fields = ['date', 'start_time', 'end_time', 'description']
         widgets = {
             'date': forms.DateInput(
                 attrs={'type': 'date'}
             ),
             'start_time': forms.TimeInput(
-                attrs={'type': 'time', 'value': '00:00'}
+                attrs={'type': 'time'}
             ),
             'end_time': forms.TimeInput(
-                attrs={'type': 'time', 'value': '00:00'}
+                attrs={'type': 'time'}
             ),
+            'description': forms.TextInput(attrs={
+                'placeholder': 'Optional: Add note (e.g., "Doctor appointment", "Meeting")',
+                'maxlength': 200,
+                'class': 'form-input'
+            })
         }
         initial = {
             # if a static initial date is required, place it here and then comment out
@@ -239,8 +244,8 @@ class GroupUnavailabilityForm(forms.ModelForm):
         fields = ['date', 'start_time', 'end_time', 'description']
         widgets = {
             'date': forms.DateInput(attrs={'type': 'date'}),
-            'start_time': forms.TimeInput(attrs={'type': 'time', 'value': '00:00'}),
-            'end_time': forms.TimeInput(attrs={'type': 'time', 'value': '00:00'}),
+            'start_time': forms.TimeInput(attrs={'type': 'time'}),
+            'end_time': forms.TimeInput(attrs={'type': 'time'}),
             'description': forms.TextInput(attrs={
                 'placeholder': 'Optional: Add description (e.g., "Team meeting")',
                 'maxlength': 200,

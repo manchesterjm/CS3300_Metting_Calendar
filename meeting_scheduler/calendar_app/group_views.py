@@ -28,11 +28,9 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.http import HttpResponseServerError
 from .forms import (
     GroupCreateForm,
-    AddMemberForm,
-    GroupUnavailabilityForm,
-    GroupDeleteSelectedForm
+    AddMemberForm
 )
-from .models import Group, GroupUnavailability
+from .models import Group, Unavailability
 
 # Configure logger for group calendar module
 logger = logging.getLogger(__name__)
@@ -155,28 +153,23 @@ def group_detail_view(request, group_id):
 @login_required
 def group_calendar_view(request, group_id):
     """
-    Main view for group calendar handling all form submissions.
+    Read-only group calendar view for finding common free times.
 
-    Similar to personal calendar but for group shared calendars.
-    Handles multiple POST actions:
-    - submit_unavailability: Creates new group unavailability entries
-    - show_free_times: Calculates available time slots for group on a date
-    - show_last_five: Displays the 5 most recent group unavailability entries
-    - delete_selected: Deletes selected entries (only creator can delete their entries)
+    This view is read-only - it only displays free time slots based on
+    ALL group members' personal calendars. Members manage their schedules
+    via their personal calendar (/calendar/), and this view aggregates
+    that data to find times when everyone is available.
 
-    Free time slots are calculated based on ALL group members' unavailability.
+    Handles one POST action:
+    - show_free_times: Calculates available time slots based on all members' personal calendars
 
     Args:
         request: HttpRequest object containing metadata about the request.
         group_id: Primary key of the group calendar to display.
 
     Returns:
-        HttpResponse: Rendered group calendar template with forms and optionally
+        HttpResponse: Rendered group calendar template with optionally
             free_times list if show_free_times was requested.
-
-    Redirects:
-        - After successful unavailability submission
-        - After successful deletion of entries
 
     Raises:
         Http404: If group doesn't exist or user is not a member.
@@ -189,127 +182,54 @@ def group_calendar_view(request, group_id):
         return redirect('group_list')
 
     free_times = None
-    form_delete = None
+    selected_date = None
 
-    if request.method == 'POST':
-        if 'submit_unavailability' in request.POST:
-            form = GroupUnavailabilityForm(request.POST, submit_type='submit_unavailability')
-            if form.is_valid():
-                # Save but don't commit yet - need to associate with user and group
-                new_record = form.save(commit=False)
-                new_record.user = request.user
-                new_record.group = group
-                new_record.save()
+    if request.method == 'POST' and 'show_free_times' in request.POST:
+        # Get the date from POST data
+        selected_date_str = request.POST.get('date')
+        try:
+            selected_date = datetime.datetime.strptime(selected_date_str, '%Y-%m-%d').date()
 
-                description_text = f' - {new_record.description}' if new_record.description else ''
-                messages.success(
-                    request,
-                    f'New Record Made: <br>{new_record.date} from '
-                    f'{new_record.start_time} to {new_record.end_time}{description_text}'
-                )
-                return redirect('group_calendar', group_id=group.id)
-            print("Group Unavailability Form Errors:", form.errors)
+            # Get ALL group members (both owner and members)
+            group_members = list(group.members.all())
+            if group.created_by not in group_members:
+                group_members.append(group.created_by)
 
-        elif 'show_free_times' in request.POST:
-            form = GroupUnavailabilityForm(request.POST)
-            if form.is_valid():
-                data = form.cleaned_data
-                selected_date = data['date']
-                # Get ALL group unavailability entries for this date
-                # Use select_related to fetch user data in one query (avoid N+1)
-                unavail_list = GroupUnavailability.objects.filter(
-                    group=group,
-                    date=selected_date
-                ).select_related('user')
+            # Get personal unavailability for ALL group members on this date
+            unavail_list = Unavailability.objects.filter(
+                user__in=group_members,
+                date=selected_date
+            ).select_related('user')
 
-                start_dt = datetime.datetime.combine(selected_date, datetime.time(8, 0))
-                end_dt = datetime.datetime.combine(selected_date, datetime.time(20, 0))
-                all_slots = []
-                while start_dt < end_dt:
-                    all_slots.append(start_dt.time())
-                    start_dt += datetime.timedelta(minutes=30)
+            # Generate all 30-minute slots from 8:00 to 20:00
+            start_dt = datetime.datetime.combine(selected_date, datetime.time(8, 0))
+            end_dt = datetime.datetime.combine(selected_date, datetime.time(20, 0))
+            all_slots = []
+            while start_dt < end_dt:
+                all_slots.append(start_dt.time())
+                start_dt += datetime.timedelta(minutes=30)
 
-                # Mark taken slots
-                taken_slots = set()
-                for unavail in unavail_list:
-                    current_slot = datetime.datetime.combine(selected_date, unavail.start_time)
-                    unavail_end = datetime.datetime.combine(selected_date, unavail.end_time)
-                    while current_slot < unavail_end:
-                        taken_slots.add(current_slot.time())
-                        current_slot += datetime.timedelta(minutes=30)
+            # Mark taken slots based on members' personal unavailability
+            taken_slots = set()
+            for unavail in unavail_list:
+                current_slot = datetime.datetime.combine(selected_date, unavail.start_time)
+                unavail_end = datetime.datetime.combine(selected_date, unavail.end_time)
+                while current_slot < unavail_end:
+                    taken_slots.add(current_slot.time())
+                    current_slot += datetime.timedelta(minutes=30)
 
-                # Calculate free times
-                free_times = [slot.strftime("%H:%M") for slot in all_slots
-                              if slot not in taken_slots]
-            print("Show Free Times Form Errors:", form.errors)
-            form_delete = GroupDeleteSelectedForm()
+            # Calculate free times (times when NO member is unavailable)
+            free_times = [slot.strftime("%H:%M") for slot in all_slots
+                          if slot not in taken_slots]
 
-        elif 'show_last_five' in request.POST:
-            form = GroupUnavailabilityForm()
-            # Get last five entries for this group
-            # Use select_related to optimize user data fetching
-            last_five = GroupUnavailability.objects.filter(group=group).select_related('user').order_by('-id')[:5]
-            choices = []
-            for entry in last_five:
-                # Include username in label so users know who created it
-                description_text = f' - {entry.description}' if entry.description else ''
-                label = (f"{entry.user.username}: {entry.date} from "
-                        f"{entry.start_time} to {entry.end_time}{description_text}")
-                # Only allow deletion of own entries - we'll enforce this in the view
-                choices.append((entry.id, label))
-            form_delete = GroupDeleteSelectedForm()
-            form_delete.fields['entry_ids'].choices = choices
-
-        elif 'delete_selected' in request.POST:
-            form = GroupUnavailabilityForm()
-            # Repopulate choices from the last five entries
-            # Use select_related to optimize user data fetching
-            last_five = GroupUnavailability.objects.filter(group=group).select_related('user').order_by('-id')[:5]
-            choices = []
-            for entry in last_five:
-                description_text = f' - {entry.description}' if entry.description else ''
-                label = (f"{entry.user.username}: {entry.date} from "
-                        f"{entry.start_time} to {entry.end_time}{description_text}")
-                choices.append((entry.id, label))
-
-            form_delete = GroupDeleteSelectedForm(request.POST)
-            form_delete.fields['entry_ids'].choices = choices
-
-            if form_delete.is_valid():
-                entry_ids = form_delete.cleaned_data['entry_ids']
-                print("Delete form cleaned data:", entry_ids)
-                if entry_ids:
-                    entry_ids = [int(e_id) for e_id in entry_ids]
-                    # CRITICAL: Only delete entries created by current user
-                    count_before = GroupUnavailability.objects.filter(
-                        group=group, user=request.user, id__in=entry_ids).count()
-                    print("Count before deletion:", count_before)
-                    GroupUnavailability.objects.filter(
-                        group=group, user=request.user, id__in=entry_ids).delete()
-                    count_after = GroupUnavailability.objects.filter(
-                        group=group, user=request.user, id__in=entry_ids).count()
-                    print("Count after deletion:", count_after)
-
-                    if count_before > 0:
-                        messages.success(request, f'Deleted {count_before} entry(ies).')
-                    else:
-                        messages.warning(request, 'No entries deleted. You can only delete your own entries.')
-                else:
-                    print("No entries selected for deletion.")
-                return redirect('group_calendar', group_id=group.id)
-            print("Delete Form Errors:", form_delete.errors)
-        else:
-            form = GroupUnavailabilityForm()
-            form_delete = GroupDeleteSelectedForm()
-    else:
-        form = GroupUnavailabilityForm()
-        form_delete = GroupDeleteSelectedForm()
+        except (ValueError, TypeError):
+            # If date parsing fails, show error
+            messages.error(request, 'Please select a valid date.')
 
     return render(request, 'calendar_app/group_calendar.html', {
-        'form': form,
-        'form_delete': form_delete,
         'free_times': free_times,
         'group': group,
+        'selected_date': selected_date,
     })
 
 
