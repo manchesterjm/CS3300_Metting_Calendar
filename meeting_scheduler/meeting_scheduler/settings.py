@@ -248,16 +248,19 @@ LOGOUT_REDIRECT_URL = 'login'  # Redirect after logout
 # =============================================================================
 # EMAIL SETTINGS
 # =============================================================================
-# For development: emails are sent via Gmail SMTP for testing password reset
+# For development: emails printed to console (no SMTP credentials needed)
 # For production: configure SMTP settings with environment variables
 
-# Use Gmail SMTP for testing with custom backend that bypasses SSL verification
-# WARNING: This is insecure and only for development testing on Windows
-EMAIL_BACKEND = 'calendar_app.email_backend.UnsecureEmailBackend'
-EMAIL_HOST = 'smtp.gmail.com'
-EMAIL_PORT = 465
-EMAIL_USE_SSL = True
-EMAIL_HOST_USER = 'manchesterjm@gmail.com'
-EMAIL_HOST_PASSWORD = 'ntuibnehkvahqvna'  # Gmail App Password
+# DEVELOPMENT: Console backend (emails printed to terminal)
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
-DEFAULT_FROM_EMAIL = 'manchesterjm@gmail.com'
+# PRODUCTION: Uncomment and configure with environment variables
+# EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+# EMAIL_HOST = os.environ.get('EMAIL_HOST', 'smtp.gmail.com')
+# EMAIL_PORT = int(os.environ.get('EMAIL_PORT', 587))
+# EMAIL_USE_TLS = True
+# EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER')
+# EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD')
+# DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL')
+
+DEFAULT_FROM_EMAIL = 'noreply@meetingcalendar.local'
