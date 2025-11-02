@@ -43,17 +43,36 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           OPENAI_API_ENDPOINT: https://api.openai.com/v1
-          # If you set secret OPENAI_MODEL (e.g., 'gpt-5'), it will use that; else it falls back.
-          MODEL: ${{ secrets.OPENAI_MODEL != '' && secrets.OPENAI_MODEL || 'gpt-4o-mini' }}
+          # Using GPT-4 Turbo for reliable code review capabilities
+          MODEL: ${{ secrets.OPENAI_MODEL != '' && secrets.OPENAI_MODEL || 'gpt-4-turbo' }}
+          # Review ALL changed files, not just workflow files
+          LANGUAGE: en-US
+          # Ensure all files are reviewed
+          MAX_FILES: "50"
           PROMPT: |
-            Please review the Python/Django code changes and provide feedback on:
-              1) Code quality and Django best practices
-              2) Potential bugs/issues
-              3) Security concerns
-              4) Performance considerations
-              5) Suggestions for improvement
-              Keep comments concise and reference line numbers where useful.
+            You are a senior Django developer conducting a thorough code review.
+
+            CRITICAL REQUIREMENT: You MUST review EVERY SINGLE file that was changed in this PR.
+            Do not skip any files. Do not just review workflow files or configuration files.
+
+            For EACH changed file (Python, HTML, Markdown, etc.), you MUST provide detailed analysis.
+
+            For each changed file, explicitly discuss:
+            1) **Code Quality**: Evaluate Django best practices, PEP 8 compliance, code organization, and readability
+            2) **Potential Issues**: Identify bugs, edge cases, error handling gaps, or logic flaws
+            3) **Security**: Check for vulnerabilities (SQL injection, XSS, CSRF, auth issues, data exposure)
+            4) **Performance**: Analyze database queries (N+1 problems), caching opportunities, algorithm efficiency
+            5) **Testing**: Assess test coverage, test quality, and missing test cases
+            6) **Suggestions**: Provide specific, actionable improvements with code examples where helpful
+
+            IMPORTANT:
+            - Even if code is excellent, explain WHY it's good and what was done well
+            - Reference specific line numbers for all comments
+            - Provide code snippets for suggested improvements
+            - If you see test files, comment on test quality and coverage
+            - Never just say "LGTM" - always provide substantive analysis
+            - Be constructive and educational in your feedback
           # Newer models expect 'max_completion_tokens' rather than 'max_tokens'
-          max_completion_tokens: "8000"
+          max_completion_tokens: "16000"
           top_p: "1"
           temperature: "0.7"

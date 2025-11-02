@@ -3,6 +3,14 @@ Django models for the calendar application.
 
 This module defines the database models for tracking unavailability entries
 in the meeting scheduler application, including support for shared group calendars.
+
+Models:
+    - Unavailability: Individual user unavailability periods
+    - Group: Shared calendar groups for team scheduling
+    - GroupUnavailability: Unavailability entries for group calendars
+
+Version: 2.0 (Group Calendar Support)
+Last Updated: 2025-01-11
 """
 from django.conf import settings
 from django.db import models
@@ -43,6 +51,20 @@ class Unavailability(models.Model):
             str: Formatted string showing user, date, start time, and end time.
         """
         return f"{self.user.username}: {self.date} from {self.start_time} to {self.end_time}"
+
+    def user_can_edit(self, user):
+        """
+        Check if a user has permission to edit or delete this unavailability entry.
+
+        Only the user who created the entry can edit or delete it.
+
+        Args:
+            user: The User instance to check permissions for.
+
+        Returns:
+            bool: True if the user can edit this entry, False otherwise.
+        """
+        return self.user == user
 
 
 class Group(models.Model):
@@ -111,6 +133,34 @@ class Group(models.Model):
         """
         return self.created_by == user
 
+    def user_can_edit(self, user):
+        """
+        Check if a user has permission to edit this group.
+
+        Only the group owner (creator) can edit or delete the group.
+
+        Args:
+            user: The User instance to check permissions for.
+
+        Returns:
+            bool: True if the user can edit this group, False otherwise.
+        """
+        return self.is_owner(user)
+
+    def user_can_view(self, user):
+        """
+        Check if a user has permission to view this group.
+
+        Both members and owners can view the group.
+
+        Args:
+            user: The User instance to check permissions for.
+
+        Returns:
+            bool: True if the user can view this group, False otherwise.
+        """
+        return self.is_member(user) or self.is_owner(user)
+
 
 class GroupUnavailability(models.Model):
     """
@@ -159,3 +209,31 @@ class GroupUnavailability(models.Model):
             str: Formatted string showing group, user, date, and times.
         """
         return f"{self.group.name} - {self.user.username}: {self.date} from {self.start_time} to {self.end_time}"
+
+    def user_can_edit(self, user):
+        """
+        Check if a user has permission to edit or delete this group unavailability entry.
+
+        Only the user who created the entry can edit or delete it.
+
+        Args:
+            user: The User instance to check permissions for.
+
+        Returns:
+            bool: True if the user can edit this entry, False otherwise.
+        """
+        return self.user == user
+
+    def user_can_view(self, user):
+        """
+        Check if a user has permission to view this group unavailability entry.
+
+        All members of the group can view the entry.
+
+        Args:
+            user: The User instance to check permissions for.
+
+        Returns:
+            bool: True if the user can view this entry, False otherwise.
+        """
+        return self.group.user_can_view(user)

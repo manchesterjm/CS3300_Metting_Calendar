@@ -3,12 +3,26 @@ Authentication views for the calendar application.
 
 This module contains views for user registration, login, logout,
 and account management.
+
+Views:
+    - register_view: User registration with password validation
+    - login_view: User authentication
+    - logout_view: Session termination
+    - account_view: User profile management
+
+Security Features: Login required decorators, password validation, session management.
 """
+import logging
 from django.contrib import messages
 from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required
+from django.db import DatabaseError, IntegrityError, transaction
 from django.shortcuts import render, redirect
+from django.http import HttpResponseServerError
 from .auth_forms import UserRegistrationForm, CustomAuthenticationForm, UserProfileForm
+
+# Configure logger for authentication module
+logger = logging.getLogger(__name__)
 
 
 def register_view(request):
@@ -30,13 +44,34 @@ def register_view(request):
     if request.method == 'POST':
         form = UserRegistrationForm(request.POST)
         if form.is_valid():
-            user = form.save()
-            login(request, user)
-            messages.success(
-                request,
-                f'Welcome {user.username}! Your account has been created successfully.'
-            )
-            return redirect('calendar')
+            try:
+                # Use atomic transaction for database operations only
+                with transaction.atomic():
+                    user = form.save()
+                    # Verify user was saved successfully
+                    if not user.id:
+                        raise ValueError('Failed to create user account - user ID is None')
+
+            except IntegrityError as e:
+                logger.error('Database integrity error during registration: %s', e)
+                messages.error(request, 'Username or email already exists. Please try again.')
+            except DatabaseError as e:
+                logger.error('Database error during registration: %s', e)
+                messages.error(request, 'An error occurred while creating your account. Please try again later.')
+                return HttpResponseServerError('Internal server error')
+            except ValueError as e:
+                logger.error('User creation validation error: %s', e)
+                messages.error(request, 'Account creation failed. Please try again.')
+            else:
+                # Success path - login after successful transaction
+                # Session operations outside transaction block
+                login(request, user)
+                messages.success(
+                    request,
+                    f'Welcome {user.username}! Your account has been created successfully.'
+                )
+                logger.info('New user registered and logged in: %s', user.username)
+                return redirect('calendar')
     else:
         form = UserRegistrationForm()
 
@@ -112,14 +147,24 @@ def account_view(request):
     if request.method == 'POST':
         form = UserProfileForm(request.POST, instance=request.user)
         if form.is_valid():
-            form.save()
-            messages.success(request, 'Your account information has been updated.')
-            return redirect('account')
+            try:
+                form.save()
+                messages.success(request, 'Your account information has been updated.')
+                logger.info('User %s updated their profile', request.user.username)
+                return redirect('account')
+            except DatabaseError as e:
+                logger.error('Database error updating profile for %s: %s', request.user.username, e)
+                messages.error(request, 'An error occurred while updating your profile. Please try again later.')
     else:
         form = UserProfileForm(instance=request.user)
 
-    # Get user's unavailability count
-    unavailability_count = request.user.unavailabilities.count()
+    # Get user's unavailability count with error handling
+    try:
+        unavailability_count = request.user.unavailabilities.count()
+    except DatabaseError as e:
+        logger.error('Database error retrieving unavailability count for %s: %s', request.user.username, e)
+        unavailability_count = 0
+        messages.warning(request, 'Could not load some account statistics.')
 
     context = {
         'form': form,

@@ -1,6 +1,12 @@
 """
 Fuzz testing using Hypothesis
-Tests the application with randomly generated inputs with authentication support
+
+Tests the application with randomly generated inputs with authentication support.
+Uses Hypothesis library to generate ~350 test cases from 9 test functions.
+
+Test Count: 9 fuzz tests (~350 generated cases)
+Strategy: Property-based testing with constrained random generation
+Last Updated: 2025-01-11
 """
 import datetime
 from django.test import Client

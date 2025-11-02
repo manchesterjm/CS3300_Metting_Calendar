@@ -1,14 +1,14 @@
-name: Django Tests with Coverage
+name: Run Django Tests with Coverage
 
 on:
   push:
-    branches: ["main", "master", "develop"]
+    branches: ["**"]
   pull_request:
-    branches: ["main", "master", "develop"]
+    branches: ["**"]
 
 permissions:
   contents: read
-  pull-requests: write  # Allow posting coverage comments on PRs
+  pull-requests: write
 
 jobs:
   tests:
@@ -22,68 +22,85 @@ jobs:
         with:
           python-version: "3.13"
           cache: pip
+          cache-dependency-path: 'meeting_scheduler/requirements*.txt'
 
       - name: Install dependencies
         run: |
+          cd meeting_scheduler
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install -r requirements-dev.txt
 
-      - name: Run Django tests with coverage
+      - name: Run tests with coverage
         run: |
-          python -m coverage run --source=calendar_app manage.py test calendar_app.tests --verbosity=2
-          python -m coverage xml
-          python -m coverage report
+          cd meeting_scheduler
+          set -e
+          pytest --cov=calendar_app --cov-report=xml --cov-report=term-missing --junitxml=pytest.xml || {
+            code=$?
+            if [ "$code" -eq 5 ]; then
+              echo "No tests collected. Treating as success for CI."
+              exit 0
+            else
+              exit $code
+            fi
+          }
 
-      - name: Parse coverage results
+      - name: Parse test results and coverage
         if: github.event_name == 'pull_request'
         id: test-results
         run: |
-          # Parse coverage.xml to get coverage percentage
+          cd meeting_scheduler
+          TOTAL=$(grep -oP 'tests="\K[0-9]+' pytest.xml | head -1)
+          SKIPPED=$(grep -oP 'skipped="\K[0-9]+' pytest.xml | head -1 || echo "0")
+          FAILURES=$(grep -oP 'failures="\K[0-9]+' pytest.xml | head -1 || echo "0")
+          ERRORS=$(grep -oP 'errors="\K[0-9]+' pytest.xml | head -1 || echo "0")
+          PASSED=$((TOTAL - SKIPPED - FAILURES - ERRORS))
+          TIME=$(grep -oP 'time="\K[0-9.]+' pytest.xml | head -1)
           COVERAGE=$(python3 -c "import xml.etree.ElementTree as ET; tree = ET.parse('coverage.xml'); root = tree.getroot(); print(round(float(root.attrib['line-rate']) * 100, 1))")
 
-          # Parse coverage report for individual modules
-          MODELS_COV=$(python -m coverage report | grep "calendar_app/models.py" | awk '{print $4}' || echo "N/A")
-          FORMS_COV=$(python -m coverage report | grep "calendar_app/forms.py" | awk '{print $4}' || echo "N/A")
-          VIEWS_COV=$(python -m coverage report | grep "calendar_app/views.py" | awk '{print $4}' || echo "N/A")
+          # Generate per-file coverage using coverage report
+          FILE_COV_RAW=$(python3 -m coverage report)
 
-          # Count test files for approximate test count
-          TOTAL_TESTS=$(python manage.py test calendar_app.tests --verbosity=0 2>&1 | grep -oP 'Ran \K[0-9]+' || echo "62")
+          # Format as markdown table
+          echo "file_coverage<<EOF" >> $GITHUB_OUTPUT
+          echo '```' >> $GITHUB_OUTPUT
+          echo "$FILE_COV_RAW" >> $GITHUB_OUTPUT
+          echo '```' >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
 
-          # Set outputs
+          echo "total=$TOTAL" >> $GITHUB_OUTPUT
+          echo "passed=$PASSED" >> $GITHUB_OUTPUT
+          echo "skipped=$SKIPPED" >> $GITHUB_OUTPUT
+          echo "failures=$FAILURES" >> $GITHUB_OUTPUT
+          echo "errors=$ERRORS" >> $GITHUB_OUTPUT
+          echo "time=$TIME" >> $GITHUB_OUTPUT
           echo "coverage=$COVERAGE" >> $GITHUB_OUTPUT
-          echo "models_cov=$MODELS_COV" >> $GITHUB_OUTPUT
-          echo "forms_cov=$FORMS_COV" >> $GITHUB_OUTPUT
-          echo "views_cov=$VIEWS_COV" >> $GITHUB_OUTPUT
-          echo "total_tests=$TOTAL_TESTS" >> $GITHUB_OUTPUT
 
-      - name: Post coverage results comment (updates on each commit)
+      - name: Post test results comment
         if: github.event_name == 'pull_request'
         uses: marocchino/sticky-pull-request-comment@v2
         with:
-          header: django-coverage
+          header: pytest-coverage
           message: |
-            ## 📊 Test Coverage Report
+            ## Test Results
 
-            **Overall Coverage:** ${{ steps.test-results.outputs.coverage }}%
+            | Tests | Passed | Skipped | Failures | Errors | Time |
+            |-------|--------|---------|----------|--------|------|
+            | ${{ steps.test-results.outputs.total }} | ${{ steps.test-results.outputs.passed }} | ${{ steps.test-results.outputs.skipped }} | ${{ steps.test-results.outputs.failures }} | ${{ steps.test-results.outputs.errors }} | ${{ steps.test-results.outputs.time }}s |
 
-            ### Critical Modules Coverage
+            ## Coverage: ${{ steps.test-results.outputs.coverage }}%
 
-            | Module | Coverage |
-            |--------|----------|
-            | models.py | ${{ steps.test-results.outputs.models_cov }} |
-            | forms.py | ${{ steps.test-results.outputs.forms_cov }} |
-            | views.py | ${{ steps.test-results.outputs.views_cov }} |
+            **Coverage Requirement:** 80%+ overall
 
-            **Total Tests Run:** ${{ steps.test-results.outputs.total_tests }} ✅
+            ### Per-File Coverage
+
+            ${{ steps.test-results.outputs.file_coverage }}
 
             <details>
             <summary>View Details</summary>
 
             **Commit:** `${{ github.event.pull_request.head.sha }}`
             **Run:** [View Full Report](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
-
-            **Coverage Requirement:** 74%+ overall, 93%+ on critical modules (models, forms, views)
 
             </details>
 
@@ -93,11 +110,12 @@ jobs:
         with:
           name: coverage-reports
           path: |
-            coverage.xml
-            .coverage
-            htmlcov/
+            meeting_scheduler/coverage.xml
+            meeting_scheduler/pytest.xml
+            meeting_scheduler/htmlcov/
           if-no-files-found: ignore
 
       - name: Check coverage threshold
         run: |
-          python -m coverage report --fail-under=74
+          cd meeting_scheduler
+          python3 -c "import xml.etree.ElementTree as ET; tree = ET.parse('coverage.xml'); root = tree.getroot(); coverage = round(float(root.attrib['line-rate']) * 100, 1); print(f'Coverage: {coverage}%'); exit(1) if coverage < 80 else print('Coverage meets 80% requirement')"

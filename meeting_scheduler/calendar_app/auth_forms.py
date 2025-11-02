@@ -2,6 +2,8 @@
 Authentication forms for the calendar application.
 
 This module defines forms for user registration, login, and account management.
+
+Security: Implements Django's built-in password validation and CSRF protection.
 """
 from django import forms
 from django.contrib.auth.forms import UserCreationForm, AuthenticationForm

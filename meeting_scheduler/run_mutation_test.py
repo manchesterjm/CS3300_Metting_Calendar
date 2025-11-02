@@ -1,6 +1,12 @@
 """
 Manual Mutation Testing Script
-Demonstrates mutation testing by applying mutations to code and running tests
+
+Demonstrates mutation testing by applying mutations to code and running tests.
+Implements custom mutation framework for Django applications.
+
+Mutation Types: Boundary conditions, return values, logic operators
+Target Score: 100% (all mutations killed)
+Last Updated: 2025-01-11
 """
 import os
 import subprocess

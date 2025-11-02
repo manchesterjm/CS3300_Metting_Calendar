@@ -5,6 +5,10 @@ Security Scan Runner
 Runs all security scanning tools (Bandit, Safety, pip-audit, Semgrep) and
 reports findings. This script should be run before committing code and can
 be integrated into CI/CD pipelines.
+
+Scanners: Bandit, Safety, pip-audit, Semgrep
+Target: Zero vulnerabilities
+Last Updated: 2025-01-11
 """
 
 import sys
