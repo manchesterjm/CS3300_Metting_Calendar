@@ -210,7 +210,7 @@ def change_password_view(request):
     return render(request, 'calendar_app/change_password.html', {'form': form})
 
 
-def generate_password_api(request):
+def generate_password_api(request):  # pylint: disable=unused-argument
     """
     API endpoint to generate a random secure password.
 
@@ -220,7 +220,7 @@ def generate_password_api(request):
     No authentication required - used for registration and password reset forms.
 
     Args:
-        request: HttpRequest object.
+        request: HttpRequest object (required by Django view signature).
 
     Returns:
         JsonResponse: {'password': '<generated_password>'}

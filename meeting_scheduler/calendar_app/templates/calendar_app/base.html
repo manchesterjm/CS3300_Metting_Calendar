@@ -233,7 +233,7 @@
                 <a href="{% url 'group_list' %}">My Groups</a>
                 <a href="{% url 'account' %}">My Account</a>
                 {% if user.is_staff %}
-                    <a href="/admin/" class="admin-btn">Admin Panel</a>
+                    <a href="{% url 'admin:index' %}" class="admin-btn">Admin Panel</a>
                 {% endif %}
                 <form method="post" action="{% url 'logout' %}">
                     {% csrf_token %}

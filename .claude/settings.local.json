@@ -29,7 +29,15 @@
       "Bash(taskkill:*)",
       "Bash(powershell \"Start-Sleep -Seconds 20\")",
       "Bash(powershell \"Get-Process python | Stop-Process -Force\")",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$(cat <<''EOF''\nfeat: Implement read-only group calendar and description field\n\nMajor Changes:\n- Convert group calendar to read-only view that aggregates all members'' personal calendars\n- Users manage their schedules on personal calendar (/calendar/)\n- Group calendar (/groups/X/calendar/) shows common free times for all members\n- Add optional description field to unavailability entries for better context\n\nGroup Calendar Updates:\n- Remove add/delete functionality from group calendar view (group_views.py:155-235)\n- Update group_calendar_view to check personal Unavailability for all group members\n- Simplify group_calendar.html template to show only date picker and \"Show Free Times\"\n- Add informational message explaining read-only workflow\n\nDatabase Changes:\n- Add description CharField to Unavailability model (max_length=200, blank=True)\n- Create migration 0003_unavailability_description.py\n- Update all entry display logic to show descriptions when available\n\nEmail Configuration:\n- Add Gmail SMTP configuration for password reset testing\n- Create custom UnsecureEmailBackend for Windows development SSL workaround\n- Configure email settings for development environment\n\nTesting Updates:\n- Update tests.py to match new read-only workflow (5 obsolete tests removed, 2 updated)\n- Update test_debug_crud.py for personal calendar aggregation\n- All 141 tests passing (93 unit + 16 fuzz + 32 other)\n- Pylint score: 9.98/10\n- Mutation score: 100% (8/8 killed)\n\nUI Improvements:\n- Fix word wrapping issues in entry displays (calendar.html, group_calendar.html)\n- Add home landing page for authenticated users\n- Update base template navigation\n\nSecurity:\n- pip-audit: No known vulnerabilities\n- Bandit: 2 expected findings (development SSL bypass, documented)\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(git push:*)",
+      "Bash(git commit:*)",
+      "Bash(git rev-list:*)",
+      "mcp__ide__getDiagnostics",
+      "Bash(powershell \"Remove-Item -Recurse -Force calendar_app\\__pycache__\")",
+      "Bash(powershell \"Get-ChildItem -Recurse -Include __pycache__ | Remove-Item -Recurse -Force\")",
+      "Bash(coverage report:*)"
     ],
     "deny": [],
     "ask": []

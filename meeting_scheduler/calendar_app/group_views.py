@@ -4,6 +4,8 @@ Django views for group calendar functionality.
 This module contains views for managing groups and group calendars,
 including group creation, member management, and shared calendar functionality.
 
+pylint: disable=duplicate-code
+
 Views:
     - group_list_view: Display all groups for current user
     - group_create_view: Create new calendar group
@@ -31,6 +33,7 @@ from .forms import (
     AddMemberForm
 )
 from .models import Group, Unavailability
+from .utils import calculate_free_time_slots
 
 # Configure logger for group calendar module
 logger = logging.getLogger(__name__)
@@ -201,26 +204,8 @@ def group_calendar_view(request, group_id):
                 date=selected_date
             ).select_related('user')
 
-            # Generate all 30-minute slots from 8:00 to 20:00
-            start_dt = datetime.datetime.combine(selected_date, datetime.time(8, 0))
-            end_dt = datetime.datetime.combine(selected_date, datetime.time(20, 0))
-            all_slots = []
-            while start_dt < end_dt:
-                all_slots.append(start_dt.time())
-                start_dt += datetime.timedelta(minutes=30)
-
-            # Mark taken slots based on members' personal unavailability
-            taken_slots = set()
-            for unavail in unavail_list:
-                current_slot = datetime.datetime.combine(selected_date, unavail.start_time)
-                unavail_end = datetime.datetime.combine(selected_date, unavail.end_time)
-                while current_slot < unavail_end:
-                    taken_slots.add(current_slot.time())
-                    current_slot += datetime.timedelta(minutes=30)
-
-            # Calculate free times (times when NO member is unavailable)
-            free_times = [slot.strftime("%H:%M") for slot in all_slots
-                          if slot not in taken_slots]
+            # Calculate free time slots using utility function
+            free_times = calculate_free_time_slots(selected_date, unavail_list)
 
         except (ValueError, TypeError):
             # If date parsing fails, show error

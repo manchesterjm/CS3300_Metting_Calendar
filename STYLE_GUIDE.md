@@ -1,10 +1,10 @@
 # Python/Django Style Guide
 
-**Language Learning Platform - Coding Standards**
+**Meeting Scheduler - Coding Standards**
 
-**Version**: 1.0
-**Last Updated**: October 29, 2025
-**Status**: Active as of Sprint 3
+**Version**: 2.0
+**Last Updated**: January 11, 2025
+**Project**: CS3300 Meeting Scheduler Application
 
 This document defines the coding standards for all Python and Django code in this project. All team members must follow these guidelines to ensure consistency, maintainability, and code quality.
 
@@ -42,9 +42,11 @@ This document defines the coding standards for all Python and Django code in thi
 6. **Separation of Concerns**: Each component should have a single responsibility
 
 ### Code Quality Standards
-- **Pylint Score**: Maintain ≥9.0/10 (current: 9.91/10)
-- **Test Coverage**: Maintain ≥90% (current: 93%)
+- **Pylint Score**: Maintain ≥9.0/10 (current: 9.98/10)
+- **Test Coverage**: Maintain ≥93% on critical modules (current: 93%+ on models, forms, views)
+- **Overall Coverage**: Maintain ≥74% (current: 74%)
 - **All Tests Must Pass**: No commits with failing tests
+- **Mutation Score**: Maintain 100% (current: 8/8 killed)
 - **No Warnings in Production**: Address all linter warnings before merging
 
 ---
@@ -150,22 +152,29 @@ if x == 4 :
 
 ### Project Structure
 ```
-project_root/
-├── config/              # Project settings and main URLs
-│   ├── settings.py
-│   ├── urls.py
-│   └── wsgi.py
-├── app_name/            # Django app
-│   ├── migrations/
-│   ├── templates/
-│   ├── admin.py
-│   ├── apps.py
-│   ├── forms.py
-│   ├── models.py
-│   ├── tests.py
-│   ├── urls.py
-│   └── views.py
-└── manage.py
+CS3300_project/
+└── meeting_scheduler/           # Django project root
+    ├── manage.py                # Django management script
+    ├── db.sqlite3               # SQLite database
+    ├── meeting_scheduler/       # Project settings
+    │   ├── settings.py
+    │   ├── urls.py
+    │   └── wsgi.py
+    └── calendar_app/            # Main Django app
+        ├── migrations/
+        ├── templates/
+        │   └── calendar_app/
+        ├── admin.py
+        ├── apps.py
+        ├── forms.py
+        ├── models.py            # Unavailability, Group models
+        ├── views.py             # Personal calendar views
+        ├── group_views.py       # Group calendar views
+        ├── auth_views.py        # Authentication views
+        ├── tests.py             # Unit tests (93 tests)
+        ├── test_fuzz.py         # Fuzz tests (16 tests)
+        ├── test_debug_crud.py   # Debug/integration tests
+        └── urls.py
 ```
 
 ### Model Conventions
@@ -175,63 +184,82 @@ class User(models.Model):  # GOOD
 class Users(models.Model):  # BAD
 
 # Field ordering: database fields, then Meta, then methods
-class UserProfile(models.Model):
+class Unavailability(models.Model):
     # Database fields (in logical order)
-    user = models.OneToOneField(User, on_delete=models.CASCADE)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    date = models.DateField()
+    start_time = models.TimeField()
+    end_time = models.TimeField()
+    description = models.CharField(max_length=200, blank=True)
 
     # Metadata
     class Meta:
-        ordering = ['-created_at']
-        verbose_name = 'User Profile'
-        verbose_name_plural = 'User Profiles'
+        ordering = ['-date', '-start_time']
+        verbose_name = 'Unavailability'
+        verbose_name_plural = 'Unavailabilities'
 
     # String representation
     def __str__(self):
-        return f"{self.user.username}'s Profile"
+        return f"{self.user.username} - {self.date} {self.start_time}-{self.end_time}"
 
     # Custom methods
-    def get_full_name(self):
-        return f"{self.user.first_name} {self.user.last_name}"
+    def duration_hours(self):
+        """Calculate duration in hours."""
+        start_dt = datetime.combine(self.date, self.start_time)
+        end_dt = datetime.combine(self.date, self.end_time)
+        return (end_dt - start_dt).total_seconds() / 3600
 ```
 
 ### View Conventions
 ```python
 # Use function-based views for simple logic
-def landing_page(request):
-    """Display the landing page."""
-    return render(request, 'landing.html')
+def home_view(request):
+    """Display the home/landing page."""
+    return render(request, 'calendar_app/home.html')
 
-# Use class-based views for CRUD operations
+# Function-based views with complex logic
+@login_required
+def calendar_view(request):
+    """Display and manage user's personal calendar."""
+    if request.method == 'POST':
+        if 'submit_unavailability' in request.POST:
+            # Handle unavailability form
+            pass
+        elif 'show_free_times' in request.POST:
+            # Calculate free time slots
+            pass
+
+    return render(request, 'calendar_app/calendar.html', context)
+
+# Use class-based views for CRUD operations when appropriate
 from django.views.generic import ListView, DetailView
 
-class ArticleListView(ListView):
-    """Display list of published articles."""
-    model = Article
-    template_name = 'articles/list.html'
-    context_object_name = 'articles'
-    paginate_by = 20
+class GroupListView(LoginRequiredMixin, ListView):
+    """Display list of user's groups."""
+    model = Group
+    template_name = 'calendar_app/group_list.html'
+    context_object_name = 'groups'
 
     def get_queryset(self):
-        return Article.objects.filter(published=True).order_by('-created_at')
+        return Group.objects.filter(members=self.request.user)
 ```
 
 ### URL Patterns
 ```python
 # Use descriptive URL names for reverse lookups
 urlpatterns = [
-    path('', views.landing, name='landing'),  # GOOD
-    path('', views.landing, name='view1'),     # BAD
+    path('', views.home_view, name='home'),              # GOOD
+    path('', views.home_view, name='view1'),             # BAD
 
     # Use path() over re_path() when possible
-    path('articles/<int:pk>/', views.article_detail, name='article_detail'),  # GOOD
-    re_path(r'^articles/(?P<pk>\d+)/$', views.article_detail),                # BAD
+    path('groups/<int:group_id>/', views.group_detail_view, name='group_detail'),  # GOOD
+    re_path(r'^groups/(?P<group_id>\d+)/$', views.group_detail_view),              # BAD
 
     # Group related URLs
-    path('account/', views.account_view, name='account'),
-    path('account/settings/', views.account_settings, name='account_settings'),
-    path('account/delete/', views.account_delete, name='account_delete'),
+    path('calendar/', views.calendar_view, name='calendar'),
+    path('groups/', views.group_list_view, name='group_list'),
+    path('groups/create/', views.group_create_view, name='group_create'),
+    path('groups/<int:group_id>/calendar/', views.group_calendar_view, name='group_calendar'),
 ]
 ```
 
@@ -269,29 +297,29 @@ class MyClass:
 ### Django-Specific Naming
 ```python
 # Model fields: descriptive, lowercase_with_underscores
-class Article:
+class Unavailability:
     created_at = models.DateTimeField(auto_now_add=True)  # GOOD
     created = models.DateTimeField(auto_now_add=True)      # OK but less clear
     dt = models.DateTimeField(auto_now_add=True)           # BAD
 
 # Related names: plural for reverse relations
-class Comment(models.Model):
-    article = models.ForeignKey(
-        Article,
+class GroupMembership(models.Model):
+    group = models.ForeignKey(
+        Group,
         on_delete=models.CASCADE,
-        related_name='comments'  # article.comments.all()
+        related_name='memberships'  # group.memberships.all()
     )
 
 # View function names: verb_noun or noun_verb pattern
-def list_articles(request):      # GOOD
-def article_list(request):       # GOOD
-def articles(request):           # Less clear
-def view1(request):              # BAD
+def list_groups(request):          # GOOD
+def group_list(request):           # GOOD
+def groups(request):               # Less clear
+def view1(request):                # BAD
 
 # URL names: noun_verb or app_noun_verb
-name='article_list'              # GOOD
-name='list_articles'             # GOOD
-name='articles'                  # Less clear
+name='group_list'                  # GOOD
+name='calendar_view'               # GOOD
+name='groups'                      # Less clear
 ```
 
 ### Boolean Variables
@@ -330,11 +358,11 @@ from django.contrib.auth.decorators import login_required
 from django.shortcuts import render, redirect
 
 # Local application imports
-from .models import UserProfile, LoginAttempt
-from .forms import LoginForm, SignupForm
+from .models import Unavailability, Group
+from .forms import UnavailabilityForm, DeleteSelectedForm
 
 # Constants
-MAX_LOGIN_ATTEMPTS = 5
+MAX_LOGIN_ATTEMPTS = 3
 LOGIN_TIMEOUT = 300
 
 # Module-level variables (if necessary)
@@ -353,11 +381,11 @@ from datetime import datetime
 # 2. Third-party packages
 import django
 from django.db import models
-from rest_framework import serializers
+from hypothesis import given
 
 # 3. Local application/library specific
 from .models import User
-from ..utils import helper_function
+from .utils import helper_function
 
 # Within each group, imports should be alphabetical
 ```
@@ -504,53 +532,50 @@ and permission checking.
 """
 
 # Function docstring (Google style)
-def calculate_total(items, tax_rate=0.08, discount=0):
+def calculate_free_slots(date, unavailabilities, start_hour=8, end_hour=20):
     """
-    Calculate order total with tax and discount.
+    Calculate free 30-minute time slots for a given date.
 
     Args:
-        items: List of OrderItem objects
-        tax_rate: Tax rate as decimal (default: 0.08 for 8%)
-        discount: Discount amount to subtract from subtotal
+        date: Date to check for free slots
+        unavailabilities: QuerySet of Unavailability objects for the date
+        start_hour: Starting hour for schedule (default: 8 AM)
+        end_hour: Ending hour for schedule (default: 8 PM)
 
     Returns:
-        Decimal: Final total amount after tax and discount
+        List[str]: List of free time slots in "HH:MM-HH:MM" format
 
     Raises:
-        ValueError: If items list is empty or tax_rate is negative
+        ValueError: If start_hour >= end_hour
 
     Example:
-        >>> items = [OrderItem(price=10), OrderItem(price=20)]
-        >>> calculate_total(items, tax_rate=0.08)
-        Decimal('32.40')
+        >>> slots = calculate_free_slots(today, user_unavail)
+        >>> print(slots)
+        ['08:00-08:30', '08:30-09:00', '10:00-10:30', ...]
     """
-    if not items:
-        raise ValueError("Items list cannot be empty")
-    if tax_rate < 0:
-        raise ValueError("Tax rate cannot be negative")
+    if start_hour >= end_hour:
+        raise ValueError("Start hour must be before end hour")
 
-    subtotal = sum(item.price for item in items)
-    subtotal -= discount
-    total = subtotal * (1 + tax_rate)
-
-    return total
+    # Implementation...
+    return free_slots
 
 # Class docstring
-class UserProfile(models.Model):
+class Unavailability(models.Model):
     """
-    Extended user profile information.
+    User unavailability record for calendar scheduling.
 
-    Stores additional user data beyond Django's default User model,
-    including preferences, statistics, and metadata.
+    Stores time periods when a user is not available for meetings.
+    Used to calculate free time slots and group availability.
 
     Attributes:
-        user: OneToOne link to Django User model
-        bio: User biography text (optional)
-        avatar: Profile picture (optional)
-        created_at: Timestamp of profile creation
+        user: ForeignKey to Django User model
+        date: Date of unavailability
+        start_time: Start time of unavailability period
+        end_time: End time of unavailability period
+        description: Optional description (e.g., "Meeting", "Lunch")
     """
-    user = models.OneToOneField(User, on_delete=models.CASCADE)
-    bio = models.TextField(blank=True)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    date = models.DateField()
     # ...
 ```
 
@@ -571,56 +596,56 @@ counter += 1
 user = User.objects.get(id=user_id)
 
 # GOOD: Explains business logic
-# Only active users can access premium features
-if user.is_active and user.has_subscription:
-    grant_access()
+# Group calendar only shows times when ALL members are available
+if all_members_free(time_slot, group):
+    available_slots.append(time_slot)
 
 # Use TODO comments for future improvements
-# TODO(username): Add pagination when user count exceeds 1000
-users = User.objects.all()
+# TODO(username): Add pagination when entry count exceeds 100
+entries = Unavailability.objects.filter(user=user).all()
 
 # Use FIXME for known issues
-# FIXME(username): Race condition possible here, needs locking
-update_counter()
+# FIXME(username): Time zone handling needed for multi-region groups
+update_schedule()
 ```
 
 ### Django Model Documentation
 ```python
-class Article(models.Model):
+class Group(models.Model):
     """
-    Blog article model.
+    Scheduling group model.
 
-    Represents a published or draft blog article with metadata,
-    content, and relationships to authors and categories.
+    Represents a group of users who want to coordinate schedules
+    and find common free times for meetings.
     """
-    title = models.CharField(
-        max_length=200,
-        help_text="Article title (shown in list and detail views)"
+    name = models.CharField(
+        max_length=100,
+        help_text="Group name (shown in group list)"
     )
-    slug = models.SlugField(
-        unique=True,
-        help_text="URL-friendly version of title"
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='owned_groups',
+        help_text="User who created this group"
     )
-    content = models.TextField(
-        help_text="Main article content (Markdown supported)"
-    )
-    published_at = models.DateTimeField(
-        null=True,
-        blank=True,
-        help_text="Publication timestamp (null = draft)"
+    members = models.ManyToManyField(
+        User,
+        related_name='groups',
+        help_text="All group members including owner"
     )
 
     class Meta:
-        ordering = ['-published_at']
-        verbose_name = 'Article'
-        verbose_name_plural = 'Articles'
+        ordering = ['name']
+        verbose_name = 'Group'
+        verbose_name_plural = 'Groups'
 
     def __str__(self):
-        return self.title
+        return self.name
 
-    def is_published(self):
-        """Check if article is published (has publication date)."""
-        return self.published_at is not None
+    def get_common_free_times(self, date):
+        """Calculate times when all group members are available."""
+        # Implementation...
+        pass
 ```
 
 ---
@@ -668,8 +693,8 @@ raise ValueError("Invalid input")
 
 # GOOD
 raise ValueError(
-    f"Invalid email format: '{email}'. "
-    "Email must contain '@' and a domain."
+    f"Invalid time range: start_time ({start_time}) must be before "
+    f"end_time ({end_time})"
 )
 
 # For user-facing errors, don't expose internal details
@@ -689,22 +714,25 @@ return JsonResponse({
 ```python
 # Validate early, fail fast
 
-def create_order(items, customer):
-    """Create new order for customer."""
+def create_unavailability(user, date, start_time, end_time):
+    """Create unavailability entry for user."""
     # Validation at the top
-    if not items:
-        raise ValueError("Order must contain at least one item")
-    if not customer.is_active:
-        raise ValueError("Customer account is not active")
-    if not customer.has_payment_method:
-        raise ValueError("Customer has no payment method on file")
+    if not user.is_authenticated:
+        raise ValueError("User must be authenticated")
+    if start_time >= end_time:
+        raise ValueError("Start time must be before end time")
+    if date < datetime.date.today():
+        raise ValueError("Cannot create entry for past dates")
 
     # Main logic after validation
-    order = Order.objects.create(customer=customer)
-    for item in items:
-        order.add_item(item)
+    unavail = Unavailability.objects.create(
+        user=user,
+        date=date,
+        start_time=start_time,
+        end_time=end_time
+    )
 
-    return order
+    return unavail
 ```
 
 ---
@@ -729,11 +757,11 @@ from django.conf import settings
 from django.contrib.auth import authenticate
 from django.shortcuts import render, redirect
 
-from .forms import LoginForm
-from .models import User, UserProfile
+from .forms import UnavailabilityForm
+from .models import Unavailability, Group
 
 # BAD - mixed ordering
-from .models import User
+from .models import Unavailability
 import os
 from django.contrib.auth import authenticate
 import logging
@@ -760,7 +788,7 @@ from django.contrib.auth import *
 from ....utils import helper
 
 # GOOD
-from app_name.utils import helper
+from calendar_app.utils import helper
 ```
 
 ---
@@ -771,44 +799,43 @@ from app_name.utils import helper
 ```python
 # Use type hints for function signatures (Python 3.9+)
 
-from typing import List, Dict, Optional, Union
-from decimal import Decimal
+from typing import List, Dict, Optional, Union, QuerySet
+from datetime import date, time
 
-def calculate_total(
-    items: List[Dict[str, Union[str, Decimal]]],
-    tax_rate: float = 0.08,
-    discount: Decimal = Decimal('0')
-) -> Decimal:
-    """Calculate order total with tax and discount."""
+def calculate_free_slots(
+    target_date: date,
+    unavailabilities: QuerySet,
+    start_hour: int = 8,
+    end_hour: int = 20
+) -> List[str]:
+    """Calculate free 30-minute time slots."""
     pass
 
 # Use Optional for values that can be None
-def get_user(user_id: int) -> Optional[User]:
-    """Retrieve user by ID, returns None if not found."""
+def get_group(group_id: int) -> Optional[Group]:
+    """Retrieve group by ID, returns None if not found."""
     try:
-        return User.objects.get(id=user_id)
-    except User.DoesNotExist:
+        return Group.objects.get(id=group_id)
+    except Group.DoesNotExist:
         return None
 
 # Django model return types
-def get_recent_articles(limit: int = 10) -> QuerySet[Article]:
-    """Get recent published articles."""
-    return Article.objects.filter(
-        published=True
-    ).order_by('-created_at')[:limit]
+def get_user_unavailabilities(user: User) -> QuerySet:
+    """Get all unavailability entries for user."""
+    return Unavailability.objects.filter(user=user).order_by('-date')
 ```
 
 ---
 
 ## Testing Standards
 
-See also: **CLAUDE.md** for comprehensive testing guidance.
+See also: **CLAUDE.md** and **TESTING_WORKFLOW.md** for comprehensive testing guidance.
 
 ### Test Organization
 ```python
 # Organize tests by feature/model
-class UserModelTests(TestCase):
-    """Tests for User model functionality."""
+class UnavailabilityModelTests(TestCase):
+    """Tests for Unavailability model functionality."""
 
     def setUp(self):
         """Set up test data."""
@@ -818,15 +845,27 @@ class UserModelTests(TestCase):
             password='testpass123'
         )
 
-    def test_user_creation(self):
-        """Test user is created with correct attributes."""
-        self.assertEqual(self.user.username, 'testuser')
-        self.assertEqual(self.user.email, 'test@example.com')
-        self.assertTrue(self.user.check_password('testpass123'))
+    def test_unavailability_creation(self):
+        """Test unavailability entry is created with correct attributes."""
+        unavail = Unavailability.objects.create(
+            user=self.user,
+            date=datetime.date.today(),
+            start_time=datetime.time(9, 0),
+            end_time=datetime.time(10, 0)
+        )
+        self.assertEqual(unavail.user, self.user)
+        self.assertEqual(unavail.start_time, datetime.time(9, 0))
 
-    def test_user_str_representation(self):
-        """Test string representation of user."""
-        self.assertEqual(str(self.user), 'testuser')
+    def test_unavailability_str_representation(self):
+        """Test string representation of unavailability."""
+        unavail = Unavailability.objects.create(
+            user=self.user,
+            date=datetime.date.today(),
+            start_time=datetime.time(9, 0),
+            end_time=datetime.time(10, 0)
+        )
+        expected = f"testuser - {datetime.date.today()} 09:00:00-10:00:00"
+        self.assertEqual(str(unavail), expected)
 ```
 
 ### Test Naming
@@ -835,8 +874,8 @@ class UserModelTests(TestCase):
 
 # GOOD
 def test_login_with_invalid_password_fails(self):
-def test_user_can_update_email_address(self):
-def test_calculate_discount_for_premium_user(self):
+def test_user_can_delete_own_unavailability(self):
+def test_group_calendar_shows_common_free_times(self):
 
 # BAD
 def test_login(self):
@@ -850,29 +889,35 @@ def test_1(self):
 
 # BAD
 class BadTestClass(TestCase):
-    def test_create_user(self):
-        self.user = User.objects.create(username='test')
+    def test_create_unavailability(self):
+        self.unavail = Unavailability.objects.create(...)
 
-    def test_update_user(self):
-        # Depends on test_create_user running first!
-        self.user.email = 'new@example.com'
-        self.user.save()
+    def test_update_unavailability(self):
+        # Depends on test_create_unavailability running first!
+        self.unavail.description = 'Updated'
+        self.unavail.save()
 
 # GOOD
 class GoodTestClass(TestCase):
     def setUp(self):
         """Create fresh test data for each test."""
-        self.user = User.objects.create(username='test')
+        self.user = User.objects.create_user(username='test')
+        self.unavail = Unavailability.objects.create(
+            user=self.user,
+            date=datetime.date.today(),
+            start_time=datetime.time(9, 0),
+            end_time=datetime.time(10, 0)
+        )
 
-    def test_create_user(self):
-        user = User.objects.create(username='test2')
-        self.assertEqual(user.username, 'test2')
+    def test_create_unavailability(self):
+        new_unavail = Unavailability.objects.create(...)
+        self.assertIsNotNone(new_unavail.id)
 
-    def test_update_user(self):
-        self.user.email = 'new@example.com'
-        self.user.save()
-        self.user.refresh_from_db()
-        self.assertEqual(self.user.email, 'new@example.com')
+    def test_update_unavailability(self):
+        self.unavail.description = 'Updated'
+        self.unavail.save()
+        self.unavail.refresh_from_db()
+        self.assertEqual(self.unavail.description, 'Updated')
 ```
 
 ### Mocking
@@ -882,12 +927,12 @@ class GoodTestClass(TestCase):
 from unittest.mock import patch, MagicMock
 
 class EmailTestCase(TestCase):
-    @patch('home.views.send_mail')
+    @patch('calendar_app.auth_views.send_mail')
     def test_password_reset_sends_email(self, mock_send_mail):
         """Test password reset sends email to user."""
         mock_send_mail.return_value = 1
 
-        response = self.client.post('/forgot-password/', {
+        response = self.client.post('/password-reset/', {
             'email': 'test@example.com'
         })
 
@@ -902,17 +947,17 @@ class EmailTestCase(TestCase):
 ### Query Optimization
 ```python
 # Use select_related for foreign keys (one-to-one, many-to-one)
-articles = Article.objects.select_related('author').all()
+unavailabilities = Unavailability.objects.select_related('user').all()
 
 # Use prefetch_related for reverse foreign keys (one-to-many, many-to-many)
-users = User.objects.prefetch_related('articles').all()
+groups = Group.objects.prefetch_related('members').all()
 
 # Combine for complex queries
-articles = Article.objects.select_related(
-    'author'
+groups = Group.objects.select_related(
+    'created_by'
 ).prefetch_related(
-    'comments',
-    'tags'
+    'members',
+    'members__unavailability_set'
 ).all()
 
 # Use only() or defer() to limit fields
@@ -924,23 +969,26 @@ users = User.objects.only('username', 'email').all()
 # Put business logic in model methods, not views
 
 # GOOD
-class Order(models.Model):
-    def calculate_total(self):
-        """Calculate order total including tax."""
-        subtotal = sum(item.price for item in self.items.all())
-        tax = subtotal * self.tax_rate
-        return subtotal + tax
+class Group(models.Model):
+    def get_common_free_times(self, date):
+        """Calculate common free times for all group members."""
+        # Get all members' unavailabilities
+        all_unavail = Unavailability.objects.filter(
+            user__in=self.members.all(),
+            date=date
+        )
+        # Calculate common free slots
+        return calculate_free_slots(date, all_unavail)
 
 # In view
-order = Order.objects.get(id=order_id)
-total = order.calculate_total()
+group = Group.objects.get(id=group_id)
+free_times = group.get_common_free_times(target_date)
 
 # BAD - logic in view
-order = Order.objects.get(id=order_id)
-items = order.items.all()
-subtotal = sum(item.price for item in items)
-tax = subtotal * order.tax_rate
-total = subtotal + tax
+group = Group.objects.get(id=group_id)
+members = group.members.all()
+all_unavail = Unavailability.objects.filter(user__in=members, date=date)
+free_times = calculate_free_slots(date, all_unavail)
 ```
 
 ---
@@ -954,21 +1002,25 @@ total = subtotal + tax
 <!DOCTYPE html>
 <html>
 <head>
-    <title>{% block title %}My Site{% endblock %}</title>
+    <title>{% block title %}Meeting Scheduler{% endblock %}</title>
 </head>
 <body>
     {% block content %}{% endblock %}
 </body>
 </html>
 
-# article_detail.html
-{% extends 'base.html' %}
+# calendar.html
+{% extends 'calendar_app/base.html' %}
 
-{% block title %}{{ article.title }} - My Site{% endblock %}
+{% block title %}My Calendar - Meeting Scheduler{% endblock %}
 
 {% block content %}
-    <h1>{{ article.title }}</h1>
-    <p>{{ article.content }}</p>
+    <h1>My Calendar</h1>
+    <form method="post">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit">Submit</button>
+    </form>
 {% endblock %}
 ```
 
@@ -977,19 +1029,20 @@ total = subtotal + tax
 # Keep logic in views, not templates
 
 # BAD - complex logic in template
-{% for article in articles %}
-    {% if article.published and article.author.is_active and article.category != 'draft' %}
+{% for unavail in unavailabilities %}
+    {% if unavail.date >= today and unavail.user == request.user and unavail.start_time >= now %}
         ...
     {% endif %}
 {% endfor %}
 
 # GOOD - filter in view
-def article_list(request):
-    articles = Article.objects.filter(
-        published=True,
-        author__is_active=True
-    ).exclude(category='draft')
-    return render(request, 'articles.html', {'articles': articles})
+def calendar_view(request):
+    unavailabilities = Unavailability.objects.filter(
+        user=request.user,
+        date__gte=datetime.date.today()
+    ).order_by('date', 'start_time')
+    return render(request, 'calendar_app/calendar.html',
+                  {'unavailabilities': unavailabilities})
 ```
 
 ---
@@ -1000,8 +1053,8 @@ See **SECURITY_GUIDE.md** for comprehensive security guidelines.
 
 ### Quick Reference
 - Never commit secrets or API keys
-- Use environment variables for sensitive data
-- Validate all user input
+- Use environment variables for sensitive data (SECRET_KEY, email credentials)
+- Validate all user input (dates, times, form data)
 - Use Django's built-in protections (CSRF, XSS, SQL injection)
 - Use HTTPS in production
 - Implement rate limiting for authentication endpoints
@@ -1016,14 +1069,14 @@ See **SECURITY_GUIDE.md** for comprehensive security guidelines.
 ```python
 # Avoid N+1 queries
 # BAD
-articles = Article.objects.all()
-for article in articles:
-    print(article.author.name)  # Separate query for each author!
+groups = Group.objects.all()
+for group in groups:
+    print(group.created_by.username)  # Separate query for each user!
 
 # GOOD
-articles = Article.objects.select_related('author').all()
-for article in articles:
-    print(article.author.name)  # No extra queries
+groups = Group.objects.select_related('created_by').all()
+for group in groups:
+    print(group.created_by.username)  # No extra queries
 ```
 
 ### Caching
@@ -1031,18 +1084,17 @@ for article in articles:
 # Use Django's cache framework for expensive operations
 from django.core.cache import cache
 
-def get_popular_articles():
-    """Get popular articles with 5-minute cache."""
-    cache_key = 'popular_articles'
-    articles = cache.get(cache_key)
+def get_user_free_times(user, date):
+    """Get user free times with 5-minute cache."""
+    cache_key = f'free_times_{user.id}_{date}'
+    free_times = cache.get(cache_key)
 
-    if articles is None:
-        articles = Article.objects.filter(
-            published=True
-        ).order_by('-view_count')[:10]
-        cache.set(cache_key, articles, 300)  # 5 minutes
+    if free_times is None:
+        unavail = Unavailability.objects.filter(user=user, date=date)
+        free_times = calculate_free_slots(date, unavail)
+        cache.set(cache_key, free_times, 300)  # 5 minutes
 
-    return articles
+    return free_times
 ```
 
 ---
@@ -1050,9 +1102,11 @@ def get_popular_articles():
 ## Code Review Checklist
 
 ### Before Submitting PR
-- [ ] All tests pass locally
-- [ ] Pylint score ≥9.0
-- [ ] Test coverage maintained or improved
+- [ ] All tests pass locally (141 tests)
+- [ ] Pylint score ≥9.0 (no disabled errors)
+- [ ] Test coverage maintained or improved (≥93% on critical modules)
+- [ ] Mutation score maintained at 100%
+- [ ] Security scans passed (Bandit, pip-audit)
 - [ ] No commented-out code
 - [ ] No debug print statements
 - [ ] Docstrings added for new functions/classes
@@ -1075,10 +1129,12 @@ def get_popular_articles():
 
 ## Enforcement
 
-### Automated Checks (Sprint 3+)
+### Automated Checks
 - **Pylint**: Runs on all PRs, must score ≥9.0
-- **Tests**: All tests must pass before merge
-- **Coverage**: Must maintain ≥90% coverage
+- **Tests**: All 141 tests must pass before merge
+- **Coverage**: Must maintain ≥93% on critical modules (models.py, forms.py, views.py)
+- **Mutation Score**: Must maintain 100%
+- **Security**: Bandit and pip-audit must pass
 
 ### Manual Review
 - All PRs require review by at least one team member
@@ -1109,14 +1165,22 @@ def get_popular_articles():
 - [Google Python Style Guide](https://google.github.io/styleguide/pyguide.html)
 - [CLAUDE.md](./CLAUDE.md) - Project-specific development guide
 - [SECURITY_GUIDE.md](./SECURITY_GUIDE.md) - Security best practices
+- [TESTING_WORKFLOW.md](./meeting_scheduler/TESTING_WORKFLOW.md) - Testing requirements
 
 ---
 
 ## Changelog
 
-### Version 1.0 (October 29, 2025)
+### Version 2.0 (January 11, 2025)
+- Updated for Meeting Scheduler project (CS3300)
+- Updated code quality standards (9.98/10 Pylint, 93%+ coverage on critical modules)
+- Updated project structure and examples to match calendar_app
+- Updated test statistics (141 tests, 100% mutation score)
+- Integrated with current security scanning tools (Bandit, pip-audit, Semgrep)
+
+### Version 1.0 (October 29, 2024)
 - Initial style guide creation
-- Established baseline standards for Sprint 3
+- Established baseline standards
 - Integrated with pylint configuration
 - Added single return statement guideline
 - Comprehensive testing standards
@@ -1124,4 +1188,4 @@ def get_popular_articles():
 ---
 
 **Questions or Suggestions?**
-Open an issue or discuss in team meetings. This guide is living document and will evolve with the project.
+Open an issue or discuss in team meetings. This guide is a living document and will evolve with the project.

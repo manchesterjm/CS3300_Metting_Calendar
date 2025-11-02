@@ -176,3 +176,41 @@ def generate_password(length=16):
 
     # Convert list to string
     return ''.join(password_chars)
+
+
+def calculate_free_time_slots(selected_date, unavail_list):
+    """
+    Calculate free 30-minute time slots for a given date.
+
+    Generates all possible 30-minute slots between 8:00 and 20:00,
+    then removes slots that conflict with unavailability entries.
+
+    Args:
+        selected_date: Date to calculate free times for (datetime.date object)
+        unavail_list: QuerySet or list of Unavailability objects for that date
+
+    Returns:
+        list: List of free time slots as strings in "HH:MM" format
+    """
+    # Generate all possible 30-minute slots from 8:00 to 20:00
+    start_dt = datetime.combine(selected_date, datetime.min.time().replace(hour=8))
+    end_dt = datetime.combine(selected_date, datetime.min.time().replace(hour=20))
+    all_slots = []
+    while start_dt < end_dt:
+        all_slots.append(start_dt.time())
+        start_dt += timedelta(minutes=30)
+
+    # Mark taken slots based on unavailability entries
+    taken_slots = set()
+    for unavail in unavail_list:
+        current_slot = datetime.combine(selected_date, unavail.start_time)
+        unavail_end = datetime.combine(selected_date, unavail.end_time)
+        while current_slot < unavail_end:
+            taken_slots.add(current_slot.time())
+            current_slot += timedelta(minutes=30)
+
+    # Calculate free times (times when NO one is unavailable)
+    free_times = [slot.strftime("%H:%M") for slot in all_slots
+                  if slot not in taken_slots]
+
+    return free_times

@@ -26,6 +26,7 @@ from .forms import (
 )
 from .utils import generate_password
 
+# pylint: disable=too-many-lines
 
 class UnavailabilityModelTest(TestCase):
     """Tests for the Unavailability model"""
@@ -686,6 +687,39 @@ class AuthenticationTest(TestCase):
         # Verify errors are displayed in HTML
         self.assertContains(response, 'password')
         self.assertIn('form', response.context)
+
+
+class HomeViewTest(TestCase):
+    """Tests for the home view"""
+
+    def setUp(self):
+        """Set up test user"""
+        self.user = User.objects.create_user(
+            username='testuser',
+            password='testpass123'
+        )
+        self.client = Client()
+
+    def test_home_view_requires_login(self):
+        """Test that home view requires authentication"""
+        response = self.client.get(reverse('home'))
+        # Should redirect to login
+        self.assertEqual(response.status_code, 302)
+        self.assertIn('/login/', response.url)
+
+    def test_home_view_authenticated(self):
+        """Test that authenticated users can access home view"""
+        self.client.login(username='testuser', password='testpass123')
+        response = self.client.get(reverse('home'))
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'calendar_app/home.html')
+
+    def test_home_view_content(self):
+        """Test that home view displays correct content"""
+        self.client.login(username='testuser', password='testpass123')
+        response = self.client.get(reverse('home'))
+        # Check for key elements that should be on the home page
+        self.assertContains(response, 'Meeting Scheduler')
 
 
 class GroupModelTest(TestCase):

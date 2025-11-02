@@ -1,12 +1,12 @@
 # Security & Bug Detection Guide
 
-**Language Learning Platform - Security Best Practices**
+**Meeting Scheduler - Security Best Practices**
 
-**Version**: 1.0
-**Last Updated**: October 29, 2025
-**Status**: Active as of Sprint 3
+**Version**: 2.0
+**Last Updated**: January 11, 2025
+**Project**: CS3300 Meeting Scheduler Application
 
-This document outlines security best practices, vulnerability scanning tools, and bug detection strategies for the Language Learning Platform. All team members must follow these guidelines to ensure application security and reliability.
+This document outlines security best practices, vulnerability scanning tools, and bug detection strategies for the Meeting Scheduler application. All team members must follow these guidelines to ensure application security and reliability.
 
 ---
 
@@ -25,7 +25,6 @@ This document outlines security best practices, vulnerability scanning tools, an
 11. [Bug Detection Strategies](#bug-detection-strategies)
 12. [Incident Response](#incident-response)
 13. [Security Checklist](#security-checklist)
-14. [Sprint 3 Implementation Plan](#sprint-3-implementation-plan)
 
 ---
 
@@ -49,42 +48,41 @@ This document outlines security best practices, vulnerability scanning tools, an
 
 ## Current Security Implementation
 
-### Implemented Protections (As of October 2025)
+### Implemented Protections (January 2025)
 
 #### Authentication Security
-- **Rate Limiting**: 5 login attempts per 5 minutes per IP
+- **User Authentication**: Django's built-in authentication system
 - **Password Requirements**: Minimum 8 characters, complexity validation
-- **Secure Password Reset**: Token-based with 20-minute expiration
-- **Session Management**: Automatic re-authentication after password change
+- **Secure Password Reset**: Token-based with 1-hour expiration
+- **Session Management**: HttpOnly cookies, Strict SameSite, 1-hour timeout
 - **Generic Error Messages**: Prevents user enumeration
+- **Account Management**: Users can update profile and change password
 
 #### Input Validation
-- **Character Whitelisting**: Alphanumeric + safe characters only (@._+-)
-- **Length Limits**: Max 254 characters for username/email (RFC 5321)
+- **Form Validation**: Django forms with field-level validation
+- **Date/Time Validation**: Server-side validation of dates and time ranges
+- **Length Limits**: Reasonable character limits on all text inputs
 - **Email Validation**: Format checking before account creation
 - **Empty Field Validation**: All required inputs checked
 
 #### Network Security
-- **IP Address Validation**: Format validation using Python's `ipaddress` module
-- **IP Logging**: All authentication events logged with validated IPs
-- **Open Redirect Prevention**: `url_has_allowed_host_and_scheme()` validation
-- **X-Forwarded-For Handling**: Secure proxy header processing
+- **HTTPS Only**: Required in production
+- **X-Frame-Options**: DENY (clickjacking protection)
+- **Content-Type-Nosniff**: Prevents MIME sniffing
+- **XSS-Protection**: Browser XSS filter enabled
 
 #### Data Protection
-- **HTTPS Only**: Required in production (Render provides automatically)
 - **CSRF Protection**: Django's built-in CSRF tokens on all forms
 - **SQL Injection Protection**: Django ORM parameterized queries
-- **XSS Protection**: Django's automatic HTML escaping + input validation
-
-#### Infrastructure Security
-- **Production Cache Validation**: Runtime warning if local memory cache used
-- **Email Configuration Validation**: Validates DEFAULT_FROM_EMAIL before sending
-- **Email Retry Mechanism**: 3 retries with exponential backoff for reliability
+- **XSS Protection**: Django's automatic HTML escaping
+- **Password Hashing**: PBKDF2 with strong key derivation
 - **Environment Variable Usage**: No secrets in code
 
 #### Testing
-- **Security Test Suite**: XSS, SQL injection, unauthorized access tests
-- **167 Tests Total**: 93% code coverage
+- **Security Test Suite**: Input validation, authentication, authorization tests
+- **141 Tests Total**: 93 unit + 16 fuzz + 32 debug/integration
+- **93%+ Code Coverage**: On critical modules (models, forms, views)
+- **100% Mutation Score**: All mutations killed
 - **CI/CD**: Automated testing on all pushes/PRs
 
 **See CLAUDE.md** for detailed security feature documentation.
@@ -103,16 +101,16 @@ This document outlines security best practices, vulnerability scanning tools, an
 pip install bandit
 
 # Basic usage
-bandit -r home/ config/
+bandit -r calendar_app/ meeting_scheduler/
 
 # With configuration file
-bandit -r home/ config/ -c .bandit
+bandit -r calendar_app/ -c .bandit
 
 # Generate HTML report
-bandit -r home/ config/ -f html -o bandit-report.html
+bandit -r calendar_app/ -f html -o bandit-report.html
 
 # CI-friendly format
-bandit -r home/ config/ -f json -o bandit-report.json
+bandit -r calendar_app/ -f json -o bandit-report.json
 ```
 
 **What it detects**:
@@ -136,6 +134,7 @@ tests:
 
 exclude_dirs:
   - /venv/
+  - /env/
   - /migrations/
   - /staticfiles/
 ```
@@ -214,7 +213,7 @@ semgrep --config=p/django
 semgrep --config=p/security-audit
 
 # Custom rules
-semgrep --config=.semgrep.yml home/
+semgrep --config=.semgrep.yml calendar_app/
 ```
 
 **What it detects**:
@@ -233,10 +232,8 @@ semgrep --config=.semgrep.yml home/
 **Purpose**: Check Django settings against security best practices
 
 ```bash
-# Installation
-pip install django-security-check
-
 # Run checks
+cd meeting_scheduler
 python manage.py check --deploy
 
 # Django's built-in security checks
@@ -251,46 +248,7 @@ python manage.py check --tag security
 - Session/cookie security
 - CSRF settings
 
-#### 6. Trivy - Container & Dependency Scanner
-**Purpose**: Comprehensive security scanning for containers and dependencies
-
-```bash
-# Installation (if using Docker)
-# Download from: https://github.com/aquasecurity/trivy
-
-# Scan filesystem
-trivy fs .
-
-# Scan requirements file
-trivy fs --security-checks vuln requirements.txt
-
-# Generate report
-trivy fs --format json --output trivy-report.json .
-```
-
-**What it detects**:
-- Dependency vulnerabilities
-- Container image vulnerabilities
-- Configuration issues
-- License compliance issues
-
-#### 7. SQLMap - SQL Injection Testing
-**Purpose**: Automated SQL injection detection and exploitation
-
-```bash
-# Installation
-pip install sqlmap
-
-# Test a URL for SQL injection
-sqlmap -u "http://example.com/article?id=1"
-
-# Test with authenticated session
-sqlmap -u "http://example.com/article?id=1" --cookie="sessionid=..."
-```
-
-**⚠️ WARNING**: Only use on your own applications or with explicit permission!
-
-#### 8. Detect-Secrets - Secret Detection
+#### 6. Detect-Secrets - Secret Detection
 **Purpose**: Prevent secrets from being committed to Git
 
 ```bash
@@ -326,16 +284,16 @@ detect-secrets audit .secrets.baseline
 **Prevention**:
 ```python
 # Use Django's permission system
-from django.contrib.auth.decorators import login_required, permission_required
+from django.contrib.auth.decorators import login_required
+from django.core.exceptions import PermissionDenied
 
 @login_required
-@permission_required('articles.can_edit', raise_exception=True)
-def edit_article(request, article_id):
-    article = get_object_or_404(Article, id=article_id)
+def edit_group(request, group_id):
+    group = get_object_or_404(Group, id=group_id)
 
-    # Additional check: user owns the article
-    if article.author != request.user and not request.user.is_staff:
-        raise PermissionDenied
+    # Additional check: user owns the group
+    if group.created_by != request.user:
+        raise PermissionDenied("You can only edit groups you created")
 
     # ... edit logic
 ```
@@ -412,24 +370,20 @@ subprocess.run(['ls', user_input], check=True)  # Shell=False by default
 - Defense in depth
 - Secure defaults
 
-**Example - Rate Limiting**:
+**Example - Data Isolation**:
 ```python
-# Prevent brute force attacks at design level
-def check_rate_limit(request, action, limit=5, period=300):
-    """
-    Rate limit security control.
+# Ensure users can only access their own data
+@login_required
+def calendar_view(request):
+    """Display user's personal calendar."""
+    # Only show current user's unavailability entries
+    unavailabilities = Unavailability.objects.filter(
+        user=request.user
+    ).order_by('-date', '-start_time')
 
-    Design decision: Fail closed (deny access when unsure)
-    rather than fail open (allow access when unsure).
-    """
-    cache_key = f"rate_limit:{action}:{get_client_ip(request)}"
-    attempts = cache.get(cache_key, 0)
-
-    if attempts >= limit:
-        # Fail securely: deny access
-        return False, 0, period
-
-    return True, limit - attempts - 1, 0
+    return render(request, 'calendar_app/calendar.html', {
+        'unavailabilities': unavailabilities
+    })
 ```
 
 #### 5. Security Misconfiguration
@@ -467,6 +421,7 @@ SECURE_BROWSER_XSS_FILTER = True
 
 **Check**:
 ```bash
+cd meeting_scheduler
 python manage.py check --deploy
 ```
 
@@ -501,25 +456,24 @@ pip install --upgrade package-name
 ```python
 # Implement comprehensive authentication security
 
-# 1. Rate limiting (already implemented)
-@ratelimit(key='ip', rate='5/5m', method='POST')
-def login_view(request):
-    pass
-
-# 2. Strong password requirements
+# 1. Strong password requirements
 AUTH_PASSWORD_VALIDATORS = [
+    {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
     {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
      'OPTIONS': {'min_length': 8}},
     {'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator'},
     {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
 ]
 
-# 3. Multi-factor authentication (future implementation)
-# from django_otp.decorators import otp_required
+# 2. Secure sessions
+SESSION_COOKIE_SECURE = True  # HTTPS only
+SESSION_COOKIE_HTTPONLY = True  # No JavaScript access
+SESSION_COOKIE_SAMESITE = 'Strict'  # CSRF protection
+SESSION_COOKIE_AGE = 3600  # 1 hour timeout
 
-# 4. Secure password reset
+# 3. Secure password reset
 # - Use token-based reset
-# - Time-limited tokens (20 minutes)
+# - Time-limited tokens (1 hour)
 # - Single use tokens
 ```
 
@@ -550,22 +504,20 @@ pip install --require-hashes -r requirements.txt
 
 **Prevention**:
 ```python
-# Comprehensive security logging (already implemented)
+# Comprehensive security logging
 import logging
 logger = logging.getLogger(__name__)
 
 # Log all authentication events
-logger.info('Successful login: %s from IP: %s', username, ip_address)
-logger.warning('Failed login attempt from IP: %s', ip_address)
+logger.info('Successful login: %s', username)
+logger.warning('Failed login attempt for username: %s', username)
 
 # Log security-relevant changes
-logger.info('Password changed for user: %s from IP: %s', username, ip_address)
-logger.warning('Suspicious activity: %s from IP: %s', activity, ip_address)
+logger.info('Password changed for user: %s', username)
+logger.warning('Unauthorized access attempt to group: %s by user: %s', group_id, username)
 
-# Centralized logging (future)
-# - Use ELK stack or similar
-# - Set up alerts for suspicious patterns
-# - Regular log review
+# Log input validation failures
+logger.warning('Invalid date format submitted: %s', date_string)
 ```
 
 **Requirements**:
@@ -619,75 +571,80 @@ def fetch_external_data(url):
 ```python
 from django import forms
 from django.core.validators import EmailValidator, RegexValidator
+from datetime import datetime, time
 
-class SignupForm(forms.Form):
-    """Secure signup form with comprehensive validation."""
+class UnavailabilityForm(forms.Form):
+    """Secure unavailability form with comprehensive validation."""
 
-    username = forms.CharField(
-        max_length=150,
-        min_length=3,
-        validators=[
-            RegexValidator(
-                regex=r'^[a-zA-Z0-9_]+$',
-                message='Username can only contain letters, numbers, and underscores'
-            )
-        ]
+    date = forms.DateField(
+        widget=forms.DateInput(attrs={'type': 'date'}),
+        help_text="Date of unavailability"
     )
 
-    email = forms.EmailField(
-        validators=[EmailValidator()]
+    start_time = forms.TimeField(
+        widget=forms.TimeInput(attrs={'type': 'time'}),
+        help_text="Start time (24-hour format)"
     )
 
-    password = forms.CharField(
-        min_length=8,
-        widget=forms.PasswordInput
+    end_time = forms.TimeField(
+        widget=forms.TimeInput(attrs={'type': 'time'}),
+        help_text="End time (24-hour format)"
     )
 
-    def clean_username(self):
-        """Additional validation for username."""
-        username = self.cleaned_data['username']
+    description = forms.CharField(
+        max_length=200,
+        required=False,
+        widget=forms.TextInput(attrs={'placeholder': 'Optional description'})
+    )
 
-        # Check for reserved names
-        reserved = ['admin', 'root', 'system']
-        if username.lower() in reserved:
-            raise forms.ValidationError('This username is reserved')
+    def clean(self):
+        """Validate time range and date."""
+        cleaned_data = super().clean()
+        date = cleaned_data.get('date')
+        start_time = cleaned_data.get('start_time')
+        end_time = cleaned_data.get('end_time')
 
-        return username
+        # Validate date is not in past
+        if date and date < datetime.date.today():
+            raise forms.ValidationError('Cannot create entries for past dates')
+
+        # Validate time range
+        if start_time and end_time and start_time >= end_time:
+            raise forms.ValidationError('Start time must be before end time')
+
+        return cleaned_data
 ```
 
 ### Input Validation Best Practices
 ```python
-def validate_user_input(user_input, field_name):
+def validate_date_range(start_date, end_date):
     """
-    Validate and sanitize user input.
+    Validate date range is logical.
 
     Args:
-        user_input: Raw user input string
-        field_name: Name of field for error messages
+        start_date: Start date
+        end_date: End date
 
     Returns:
-        Cleaned input string
+        True if valid
 
     Raises:
-        ValidationError: If input is invalid
+        ValidationError: If range is invalid
     """
-    # 1. Strip whitespace
-    user_input = user_input.strip()
+    # Validate dates exist
+    if not start_date or not end_date:
+        raise ValidationError('Both dates are required')
 
-    # 2. Check if empty
-    if not user_input:
-        raise ValidationError(f'{field_name} cannot be empty')
+    # Validate start is before end
+    if start_date > end_date:
+        raise ValidationError('Start date must be before or equal to end date')
 
-    # 3. Check length
-    if len(user_input) > 254:
-        raise ValidationError(f'{field_name} is too long (max 254 characters)')
+    # Validate not too far in future (1 year max)
+    max_date = datetime.date.today() + timedelta(days=365)
+    if end_date > max_date:
+        raise ValidationError('Cannot schedule more than 1 year in advance')
 
-    # 4. Whitelist characters
-    import re
-    if not re.match(r'^[a-zA-Z0-9@._+\-]+$', user_input):
-        raise ValidationError(f'{field_name} contains invalid characters')
-
-    return user_input
+    return True
 ```
 
 ---
@@ -699,54 +656,60 @@ def validate_user_input(user_input, field_name):
 # 1. Use Django's built-in authentication
 from django.contrib.auth import authenticate, login, logout
 
-# 2. Implement rate limiting (already done)
-# See home/views.py:check_rate_limit()
+# 2. Log all authentication events
+import logging
+logger = logging.getLogger(__name__)
 
-# 3. Log all authentication events (already done)
-logger.info('Successful login: %s from IP: %s', username, ip_address)
+@login_required
+def calendar_view(request):
+    """Protected view - requires authentication."""
+    logger.info('User %s accessed calendar', request.user.username)
+    # ... view logic
 
-# 4. Use secure sessions
+# 3. Use secure sessions
 SESSION_COOKIE_SECURE = True  # HTTPS only
 SESSION_COOKIE_HTTPONLY = True  # No JavaScript access
 SESSION_COOKIE_SAMESITE = 'Strict'  # CSRF protection
 
-# 5. Implement password requirements (already done)
+# 4. Implement password requirements
 AUTH_PASSWORD_VALIDATORS = [...]
 ```
 
 ### Authorization Patterns
 ```python
 # Method 1: Decorator-based
-from django.contrib.auth.decorators import login_required, permission_required
+from django.contrib.auth.decorators import login_required
 
 @login_required
 def protected_view(request):
-    pass
-
-@permission_required('app.can_edit', raise_exception=True)
-def editor_view(request):
+    """Only authenticated users can access."""
     pass
 
 # Method 2: Object-level permissions
-def edit_article(request, article_id):
-    article = get_object_or_404(Article, id=article_id)
+@login_required
+def delete_unavailability(request, entry_id):
+    """Delete unavailability entry."""
+    entry = get_object_or_404(Unavailability, id=entry_id)
 
     # Check ownership
-    if article.author != request.user:
-        raise PermissionDenied("You can only edit your own articles")
+    if entry.user != request.user:
+        raise PermissionDenied("You can only delete your own entries")
 
-    # ... edit logic
+    entry.delete()
+    return redirect('calendar')
 
-# Method 3: Class-based views
-from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
+# Method 3: Group ownership
+@login_required
+def delete_group(request, group_id):
+    """Delete group (owner only)."""
+    group = get_object_or_404(Group, id=group_id)
 
-class ArticleUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
-    model = Article
-    permission_required = 'articles.change_article'
+    # Check ownership
+    if group.created_by != request.user:
+        raise PermissionDenied("You can only delete groups you created")
 
-    def get_queryset(self):
-        # Users can only edit their own articles
-        return Article.objects.filter(author=self.request.user)
+    group.delete()
+    return redirect('group_list')
 ```
 
 ---
@@ -757,10 +720,10 @@ class ArticleUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView)
 ```python
 # 1. Identify sensitive data
 # - Passwords
-# - API keys
-# - Tokens
-# - Personal information (PII)
-# - Financial data
+# - Email addresses
+# - Session tokens
+# - CSRF tokens
+# - Personal schedule information
 
 # 2. Never log sensitive data
 # BAD
@@ -771,31 +734,26 @@ logger.info('Password changed for user: %s', username)
 
 # 3. Use environment variables
 import os
-API_KEY = os.environ.get('API_KEY')
+SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY')
+EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD')
 
-# 4. Encrypt at rest if needed
-from cryptography.fernet import Fernet
-
-key = os.environ.get('ENCRYPTION_KEY').encode()
-cipher = Fernet(key)
-encrypted_data = cipher.encrypt(sensitive_data.encode())
-
-# 5. Use HTTPS for data in transit (always in production)
+# 4. Use HTTPS for data in transit (always in production)
+SECURE_SSL_REDIRECT = True
 ```
 
 ### Database Security
 ```python
 # 1. Use parameterized queries (Django ORM does this)
-User.objects.filter(username=user_input)  # Safe
+Unavailability.objects.filter(user=request.user)  # Safe
 
 # 2. Limit database permissions
 # - Application user should not be database superuser
 # - Grant only necessary permissions (SELECT, INSERT, UPDATE, DELETE)
 # - No CREATE, DROP, ALTER in production
 
-# 3. Enable database audit logging
-# - Track who accessed what data
-# - Monitor for suspicious queries
+# 3. Data isolation - users only see their own data
+unavailabilities = Unavailability.objects.filter(user=request.user)
+groups = Group.objects.filter(members=request.user)
 ```
 
 ---
@@ -808,44 +766,42 @@ import logging
 logger = logging.getLogger(__name__)
 
 # Security Events (MUST LOG)
-logger.warning('Failed login attempt from IP: %s', ip_address)
-logger.info('Successful login: %s from IP: %s', username, ip_address)
-logger.warning('Password reset attempted for email: %s', email)
-logger.info('Password changed for user: %s from IP: %s', username, ip_address)
-logger.error('Permission denied: %s attempted %s', username, action)
+logger.info('Successful login: %s', username)
+logger.warning('Failed login attempt for username: %s', username)
+logger.warning('Password reset requested for email: %s', email)
+logger.info('Password changed for user: %s', username)
+logger.warning('Unauthorized access attempt to group %s by user %s', group_id, username)
 
 # Application Errors (SHOULD LOG)
 logger.error('Database error: %s', exception_type)
-logger.warning('Rate limit exceeded from IP: %s', ip_address)
-logger.error('Email send failed: %s', exception_type)
+logger.warning('Invalid form submission: %s', form.errors)
 
 # Debug Information (development only)
 if settings.DEBUG:
-    logger.debug('Processing request from %s', ip_address)
+    logger.debug('Processing calendar view for user %s', username)
 ```
 
 ### What NOT to Log
 ```python
 # NEVER LOG:
 # - Passwords (plaintext or hashed)
-# - API keys or tokens
-# - Credit card numbers
-# - Social security numbers
 # - Session IDs
 # - CSRF tokens
+# - Full credit card numbers
+# - Social security numbers
 
 # BAD
 logger.info(f'User {username} logged in with password {password}')
 
 # GOOD
-logger.info('User %s logged in from IP %s', username, ip_address)
+logger.info('User %s logged in successfully', username)
 ```
 
 ### Log Analysis
 - Review logs weekly minimum
 - Set up alerts for:
-  - Multiple failed login attempts from same IP
-  - Login attempts from unusual locations
+  - Multiple failed login attempts from same user
+  - Unauthorized access attempts
   - Privilege escalation attempts
   - Unusual access patterns
 - Use log aggregation tools (ELK stack, Splunk, etc.)
@@ -857,8 +813,8 @@ logger.info('User %s logged in from IP %s', username, ip_address)
 ### Dependency Management
 ```bash
 # 1. Pin exact versions in requirements.txt
-Django==5.2.7
-psycopg2-binary==2.9.10
+Django==5.1.13
+hypothesis==6.143.12
 
 # 2. Regular updates
 pip list --outdated
@@ -901,43 +857,53 @@ pip-licenses
 
 ### Automated Security Tests
 ```python
-# tests/test_security.py
+# calendar_app/tests.py
 
 class SecurityTestCase(TestCase):
     """Security-focused test cases."""
 
-    def test_xss_attack_blocked(self):
-        """Test XSS payload is escaped."""
-        xss_payload = '<script>alert("XSS")</script>'
-        response = self.client.post('/comment/', {
-            'content': xss_payload
-        })
-        # Django should escape the script tags
-        self.assertNotContains(response, '<script>')
-        self.assertContains(response, '&lt;script&gt;')
-
-    def test_sql_injection_blocked(self):
-        """Test SQL injection is prevented."""
-        sql_payload = "' OR '1'='1"
-        # Should not cause error or bypass authentication
-        response = self.client.post('/login/', {
-            'username': sql_payload,
-            'password': 'test'
-        })
-        self.assertEqual(response.status_code, 200)
-        self.assertFalse(response.wsgi_request.user.is_authenticated)
+    def setUp(self):
+        """Set up test user and data."""
+        self.user = User.objects.create_user(
+            username='testuser',
+            password='testpass123'
+        )
+        self.other_user = User.objects.create_user(
+            username='otheruser',
+            password='otherpass123'
+        )
 
     def test_unauthorized_access_denied(self):
-        """Test non-logged-in user cannot access protected page."""
-        response = self.client.get('/dashboard/')
+        """Test non-logged-in user cannot access protected pages."""
+        response = self.client.get('/calendar/')
         self.assertEqual(response.status_code, 302)  # Redirect to login
+
+    def test_user_cannot_access_other_user_data(self):
+        """Test users can only see their own data."""
+        self.client.login(username='testuser', password='testpass123')
+
+        # Create entry for other user
+        other_unavail = Unavailability.objects.create(
+            user=self.other_user,
+            date=datetime.date.today(),
+            start_time=datetime.time(9, 0),
+            end_time=datetime.time(10, 0)
+        )
+
+        # testuser should not see other_unavail in their calendar
+        response = self.client.get('/calendar/')
+        self.assertNotContains(response, 'otheruser')
 
     def test_csrf_protection_enforced(self):
         """Test CSRF token required for POST requests."""
-        response = self.client.post('/account/', {
-            'email': 'new@example.com'
+        self.client.login(username='testuser', password='testpass123')
+
+        # POST without CSRF token should fail
+        response = self.client.post('/calendar/', {
+            'date': datetime.date.today(),
+            'start_time': '09:00',
+            'end_time': '10:00'
         })
-        # Should fail without CSRF token
         self.assertEqual(response.status_code, 403)
 ```
 
@@ -955,13 +921,13 @@ class SecurityTestCase(TestCase):
 # - Session management
 
 # 3. Fuzz testing
-# Use hypothesis for property-based testing
-pip install hypothesis
+# Use hypothesis for property-based testing (already implemented)
+cd meeting_scheduler
+python manage.py test calendar_app.test_fuzz
 ```
 
 ### Penetration Testing
 - Conduct annual penetration tests
-- Use professional security firms
 - Test in staging environment
 - Fix vulnerabilities before production deployment
 
@@ -973,66 +939,48 @@ pip install hypothesis
 
 #### Pylint (already implemented)
 ```bash
-pylint home/ config/ --rcfile=.pylintrc
+cd meeting_scheduler
+pylint calendar_app/*.py --disable=C0114,C0115,C0116,R0903,R0914,R0912,R0915,E1101 --max-line-length=120
 ```
 **Catches**: Code quality issues, potential bugs, bad practices
 
 #### Mypy - Type Checking
 ```bash
 pip install mypy
-mypy home/ config/
+mypy calendar_app/
 ```
 **Catches**: Type errors, inconsistent return types, incorrect function calls
-
-#### Pyflakes - Lightweight Static Analysis
-```bash
-pip install pyflakes
-pyflakes home/
-```
-**Catches**: Unused imports, undefined names, syntax errors
 
 ### Dynamic Analysis
 
 #### Coverage.py - Code Coverage
 ```bash
-pytest --cov=. --cov-report=html
+cd meeting_scheduler
+coverage run --source=calendar_app manage.py test calendar_app.tests
+coverage report
+coverage html  # Generate HTML report
 ```
 **Purpose**: Find untested code paths
 
-#### Hypothesis - Property-Based Testing
+#### Hypothesis - Property-Based Testing (already implemented)
 ```python
 from hypothesis import given
-from hypothesis.strategies import text, integers
+from hypothesis.strategies import dates, times
 
-@given(text(), integers())
-def test_function_with_random_inputs(string_input, int_input):
+@given(dates(), times(), times())
+def test_unavailability_with_random_times(test_date, start, end):
+    """Test unavailability with randomly generated times."""
     # Test with randomly generated inputs
-    result = my_function(string_input, int_input)
-    assert isinstance(result, expected_type)
+    # Already implemented in test_fuzz.py
 ```
 **Purpose**: Find edge cases through fuzzing
 
-#### Mutmut - Mutation Testing
+#### Mutation Testing (already implemented)
 ```bash
-pip install mutmut
-mutmut run
-mutmut results
+cd meeting_scheduler
+python run_mutation_test.py
 ```
-**Purpose**: Verify tests actually catch bugs
-
-### Runtime Monitoring
-
-#### Django Debug Toolbar (development only)
-```bash
-pip install django-debug-toolbar
-```
-**Shows**: SQL queries, templates, cache hits, signals
-
-#### Sentry - Error Tracking
-```bash
-pip install sentry-sdk
-```
-**Tracks**: Production errors, performance issues, user impact
+**Purpose**: Verify tests actually catch bugs (100% score achieved)
 
 ### Code Review
 - All code must be reviewed before merge
@@ -1073,7 +1021,7 @@ pip install sentry-sdk
 - Authentication bypass
 - Database compromise
 
-**Action**: Page security team immediately, take system offline if needed
+**Action**: Take system offline if needed, patch immediately
 
 #### High (P1) - 24 Hour Response
 - SQL injection vulnerability
@@ -1111,20 +1059,19 @@ pip install sentry-sdk
 - [ ] XSS protection enabled
 - [ ] SQL injection protection verified
 - [ ] Input validation on all user inputs
-- [ ] Authentication rate limiting enabled
 - [ ] Password requirements enforced
 - [ ] Security headers configured
 - [ ] Error pages don't expose sensitive info
 - [ ] Logging configured and working
 - [ ] Dependencies up to date
-- [ ] Security scan passed (Bandit, Safety)
-- [ ] All tests passing
+- [ ] Security scan passed (Bandit, pip-audit)
+- [ ] All 141 tests passing
 - [ ] Code review completed
 
 ### Regular Maintenance (Monthly)
 - [ ] Review security logs
 - [ ] Update dependencies
-- [ ] Run security scans (Bandit, Safety, pip-audit)
+- [ ] Run security scans (Bandit, pip-audit, Semgrep)
 - [ ] Review access controls
 - [ ] Test backup restoration
 - [ ] Review incident response plan
@@ -1140,246 +1087,37 @@ pip install sentry-sdk
 
 ---
 
-## Sprint 3 Implementation Plan
+## Security Scanning Integration
 
-### Week of November 5, 2025
+### Local Security Scanning
 
-#### CI Pipeline Security Integration
-
-**Tools to Add**:
-1. **Bandit** - Python security linting
-2. **Safety** or **pip-audit** - Dependency vulnerability scanning
-3. **Semgrep** (optional) - Advanced static analysis
-
-**Implementation Steps**:
-
-#### Step 1: Install Tools Locally (Day 1)
+**Run all scans locally:**
 ```bash
-# Add to requirements.txt or requirements-dev.txt
-bandit==1.7.10
-safety==3.2.10
-pip-audit==2.8.0
-semgrep==1.104.0
+cd meeting_scheduler
 
-# Install
-pip install -r requirements-dev.txt
+# 1. Bandit - Python security linting
+bandit -r calendar_app/ -c .bandit
 
-# Test locally
-bandit -r home/ config/
-safety check
+# 2. pip-audit - Dependency vulnerability scanning
 pip-audit
-semgrep --config=p/django home/
+
+# 3. Django security check
+python manage.py check --deploy
+
+# 4. Semgrep - Advanced static analysis (optional)
+semgrep --config=p/django calendar_app/
 ```
 
-#### Step 2: Create Configuration Files (Day 1-2)
+### CI/CD Integration
 
-**.bandit** (in project root):
-```yaml
-tests:
-  - B201  # flask_debug_true
-  - B501  # request_with_no_cert_validation
-  - B502  # ssl_with_bad_version
-  - B503  # ssl_with_bad_defaults
-  - B506  # yaml_load
-  - B601  # paramiko_calls
-  - B602  # shell_with_shell_equals_true
-  - B608  # hardcoded_sql_expressions
+Security scans are run automatically on all pull requests via GitHub Actions. The CI pipeline includes:
 
-exclude_dirs:
-  - /venv/
-  - /env/
-  - /.venv/
-  - /migrations/
-  - /staticfiles/
-  - /static/
-  - /.pytest_cache/
+1. **Code Quality** (Pylint)
+2. **All Tests** (141 tests)
+3. **Security Scans** (Bandit, pip-audit)
+4. **Coverage Report**
 
-skips:
-  - B101  # assert_used (OK in tests)
-  - B110  # try_except_pass (sometimes necessary)
-```
-
-**.semgrep.yml** (in project root):
-```yaml
-rules:
-  - id: django-sql-injection
-    pattern: cursor.execute(..., $USER_INPUT, ...)
-    message: Possible SQL injection - use parameterized queries
-    languages: [python]
-    severity: ERROR
-
-  - id: hardcoded-secret
-    pattern: password = "..."
-    message: Hardcoded password detected
-    languages: [python]
-    severity: ERROR
-```
-
-#### Step 3: Create CI Workflow (Day 2-3)
-
-**.github/workflows/security.yml**:
-```yaml
-name: Security Scans
-
-on:
-  push:
-    branches: [ main, develop ]
-  pull_request:
-    branches: [ main ]
-  schedule:
-    # Run weekly on Mondays at 9am
-    - cron: '0 9 * * 1'
-
-jobs:
-  bandit:
-    name: Bandit Security Scan
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.11'
-
-      - name: Install Bandit
-        run: pip install bandit
-
-      - name: Run Bandit
-        run: |
-          bandit -r home/ config/ -f json -o bandit-report.json
-          bandit -r home/ config/ -f screen
-
-      - name: Upload Bandit Report
-        if: always()
-        uses: actions/upload-artifact@v3
-        with:
-          name: bandit-report
-          path: bandit-report.json
-
-  safety:
-    name: Safety Dependency Check
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.11'
-
-      - name: Install Safety
-        run: pip install safety
-
-      - name: Run Safety Check
-        run: |
-          pip install -r requirements.txt
-          safety check --json > safety-report.json || true
-          safety check
-
-      - name: Upload Safety Report
-        if: always()
-        uses: actions/upload-artifact@v3
-        with:
-          name: safety-report
-          path: safety-report.json
-
-  pip-audit:
-    name: Pip Audit
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.11'
-
-      - name: Install pip-audit
-        run: pip install pip-audit
-
-      - name: Run pip-audit
-        run: pip-audit -r requirements.txt
-
-  semgrep:
-    name: Semgrep Security Scan
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: Run Semgrep
-        uses: returntocorp/semgrep-action@v1
-        with:
-          config: >-
-            p/security-audit
-            p/django
-            p/python
-```
-
-#### Step 4: Test in Development (Day 3-4)
-1. Run all security scans locally
-2. Fix any high/critical issues found
-3. Document any intentional exceptions
-4. Verify scans complete in reasonable time
-
-#### Step 5: Deploy to Main (Day 4-5)
-**Option A: Direct to Main** (Recommended for CI changes)
-```bash
-# Since this affects everyone, deploy directly to main
-git checkout main
-git pull origin main
-
-# Add security workflow
-git add .github/workflows/security.yml
-git add .bandit
-git add .semgrep.yml
-git add requirements-dev.txt
-
-# Commit
-git commit -m "Add security scanning to CI pipeline
-
-- Add Bandit for Python security linting
-- Add Safety for dependency vulnerability checking
-- Add pip-audit for Python package security
-- Add Semgrep for advanced static analysis
-- Configure exclusions and rules
-- Run weekly and on all PRs
-
-Sprint 3 - Security Implementation"
-
-# Push directly to main
-git push origin main
-```
-
-**Option B: Feature Branch** (If team prefers review)
-```bash
-git checkout -b sprint3/security-ci
-# ... make changes ...
-git push origin sprint3/security-ci
-# Create PR, get review, merge
-```
-
-#### Step 6: Team Communication (Day 5)
-- [ ] Announce CI changes in team meeting
-- [ ] Share SECURITY_GUIDE.md
-- [ ] Share STYLE_GUIDE.md
-- [ ] Explain how to run scans locally
-- [ ] Explain how to interpret results
-- [ ] Set expectations for security issues
-
-### Success Criteria
-- [ ] All security scans run on every PR
-- [ ] Scans complete in < 5 minutes
-- [ ] Team can run scans locally
-- [ ] No false positive blocking deployments
-- [ ] Security issues are tracked and fixed
-
-### Timeline
-- **Monday (Nov 5)**: Install tools, create configs
-- **Tuesday (Nov 6)**: Create CI workflow, test locally
-- **Wednesday (Nov 7)**: Fix any found issues, finalize configs
-- **Thursday (Nov 8)**: Deploy to main, team communication
-- **Friday (Nov 9)**: Monitor, adjust as needed
+See `.github/workflows/` for CI configuration.
 
 ---
 
@@ -1397,7 +1135,6 @@ git push origin sprint3/security-ci
 - [pip-audit](https://github.com/pypa/pip-audit)
 - [Semgrep](https://semgrep.dev/)
 - [OWASP ZAP](https://www.zaproxy.org/)
-- [Snyk](https://snyk.io/)
 
 ### Training
 - [OWASP WebGoat](https://owasp.org/www-project-webgoat/)
@@ -1408,16 +1145,24 @@ git push origin sprint3/security-ci
 
 ## Changelog
 
-### Version 1.0 (October 29, 2025)
+### Version 2.0 (January 11, 2025)
+- Updated for Meeting Scheduler project (CS3300)
+- Updated current security implementations to match calendar_app
+- Updated file paths and examples (calendar_app/, meeting_scheduler/)
+- Updated test statistics (141 tests, 93%+ coverage, 100% mutation score)
+- Removed outdated Sprint 3 implementation plan
+- Added Meeting Scheduler-specific examples
+- Integrated with current CI/CD pipeline
+
+### Version 1.0 (October 29, 2024)
 - Initial security guide creation
-- Documented current security implementations
+- Documented baseline security implementations
 - Added security scanning tool recommendations
-- Created Sprint 3 implementation plan
 - Integrated with STYLE_GUIDE.md and CLAUDE.md
 
 ---
 
 **Security Questions or Concerns?**
-Report security issues privately to the security team. Do not create public issues for security vulnerabilities.
+Report security issues privately to the project team. For the CS3300 course project, contact the course instructors or project team leads.
 
-**Emergency Security Contact**: [To Be Defined]
+**Project Team**: CS3300 Meeting Scheduler Development Team

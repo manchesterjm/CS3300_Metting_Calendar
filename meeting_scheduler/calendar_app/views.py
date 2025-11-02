@@ -20,6 +20,7 @@ from django.contrib.auth.decorators import login_required
 from django.shortcuts import render, redirect
 from .forms import UnavailabilityForm, DeleteSelectedForm
 from .models import Unavailability
+from .utils import calculate_free_time_slots
 
 
 @login_required
@@ -96,31 +97,16 @@ def calendar_view(request):
             print("Unavailability Form Errors:", form.errors)
 
         elif 'show_free_times' in request.POST:
-            # For showing free times, check ALL users' unavailability to find common free times
-            # So we'll just get the date directly from POST data
+            # For showing free times in personal calendar, check only current user's unavailability
+            # (Group calendars show all members - see group_calendar_view in group_views.py)
             selected_date_str = request.POST.get('date')
             try:
                 selected_date = datetime.datetime.strptime(selected_date_str, '%Y-%m-%d').date()
-                # Check ALL users' unavailability, not just current user
-                unavail_list = Unavailability.objects.filter(date=selected_date)
+                # Check only current user's unavailability for personal calendar privacy
+                unavail_list = Unavailability.objects.filter(date=selected_date, user=request.user)
 
-                start_dt = datetime.datetime.combine(selected_date, datetime.time(8, 0))
-                end_dt = datetime.datetime.combine(selected_date, datetime.time(20, 0))
-                all_slots = []
-                while start_dt < end_dt:
-                    all_slots.append(start_dt.time())
-                    start_dt += datetime.timedelta(minutes=30)
-                # start date and time display
-                taken_slots = set()
-                for unavail in unavail_list:
-                    current_slot = datetime.datetime.combine(selected_date, unavail.start_time)
-                    unavail_end = datetime.datetime.combine(selected_date, unavail.end_time)
-                    while current_slot < unavail_end:
-                        taken_slots.add(current_slot.time())
-                        current_slot += datetime.timedelta(minutes=30)
-                # actual print out
-                free_times = [slot.strftime("%H:%M") for slot in all_slots
-                              if slot not in taken_slots]
+                # Calculate free time slots using utility function
+                free_times = calculate_free_time_slots(selected_date, unavail_list)
 
                 # Recreate form with the selected date for display
                 form = UnavailabilityForm(initial={'date': selected_date})

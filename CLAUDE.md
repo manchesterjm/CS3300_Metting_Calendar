@@ -115,7 +115,9 @@ python manage.py shell
 
 ### Required Testing Process
 
-If a test server is being run, kill that process before proceeding with any testing to free up resources
+- If a test server is being run, kill that process before proceeding with any testing to free up resources
+- Display in the running log what step in the test workflow we are on for clarity
+
 When updating code, follow this mandatory workflow:
 
 #### Step 1: Run Pylint
@@ -131,7 +133,9 @@ pylint calendar_app/*.py --disable=C0114,C0115,C0116,R0903,R0914,R0912,R0915,E11
 - `E1101`: Django ORM 'objects' member detection
 
 **Action Required:**
+- Never disable a pylint test because it makes more jobs to fix
 - Fix ALL pylint findings before proceeding to tests
+- All pylint actions will be handled, they will never be skipped for any reason
 - Ensure code quality standards are met
 - Re-run pylint after fixes to verify all issues resolved
 

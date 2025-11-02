@@ -4,9 +4,10 @@ Manual Mutation Testing Script
 Demonstrates mutation testing by applying mutations to code and running tests.
 Implements custom mutation framework for Django applications.
 
-Mutation Types: Boundary conditions, return values, logic operators
+Mutation Types: Boundary conditions, return values, logic operators, validation rules
 Target Score: 100% (all mutations killed)
-Last Updated: 2025-01-11
+Mutations Count: 11 (updated to cover refactored code and new features)
+Last Updated: 2025-11-02
 """
 import os
 import subprocess
@@ -104,27 +105,27 @@ class MutationTester:
         print("MUTATION TESTING")
         print("="*70)
 
-        # Mutation 1: Change time increment in free time calculation
+        # Mutation 1: Change time increment in free time calculation (NOW IN UTILS.PY)
         self.test_mutation(
-            'calendar_app/views.py',
-            'start_dt += datetime.timedelta(minutes=30)',
-            'start_dt += datetime.timedelta(minutes=60)',
+            'calendar_app/utils.py',
+            'start_dt += timedelta(minutes=30)',
+            'start_dt += timedelta(minutes=60)',
             'Mutation 1: Change time slot from 30 to 60 minutes'
         )
 
-        # Mutation 2: Change start time boundary
+        # Mutation 2: Change start time boundary (NOW IN UTILS.PY)
         self.test_mutation(
-            'calendar_app/views.py',
-            'start_dt = datetime.datetime.combine(selected_date, datetime.time(8, 0))',
-            'start_dt = datetime.datetime.combine(selected_date, datetime.time(9, 0))',
+            'calendar_app/utils.py',
+            'start_dt = datetime.combine(selected_date, datetime.min.time().replace(hour=8))',
+            'start_dt = datetime.combine(selected_date, datetime.min.time().replace(hour=9))',
             'Mutation 2: Change start time from 8:00 to 9:00'
         )
 
-        # Mutation 3: Change end time boundary
+        # Mutation 3: Change end time boundary (NOW IN UTILS.PY)
         self.test_mutation(
-            'calendar_app/views.py',
-            'end_dt = datetime.datetime.combine(selected_date, datetime.time(20, 0))',
-            'end_dt = datetime.datetime.combine(selected_date, datetime.time(19, 0))',
+            'calendar_app/utils.py',
+            'end_dt = datetime.combine(selected_date, datetime.min.time().replace(hour=20))',
+            'end_dt = datetime.combine(selected_date, datetime.min.time().replace(hour=19))',
             'Mutation 3: Change end time from 20:00 to 19:00'
         )
 
@@ -152,20 +153,44 @@ class MutationTester:
             'Mutation 6: Remove times from model string representation'
         )
 
-        # Mutation 7: Change comparison operator
+        # Mutation 7: Change comparison operator in time slot loop (NOW IN UTILS.PY)
         self.test_mutation(
-            'calendar_app/views.py',
+            'calendar_app/utils.py',
             'while start_dt < end_dt:',
             'while start_dt <= end_dt:',
             'Mutation 7: Change < to <= in time slot loop'
         )
 
-        # Mutation 8: Change comparison operator in slot marking
+        # Mutation 8: Change comparison operator in unavailability marking (NOW IN UTILS.PY)
         self.test_mutation(
-            'calendar_app/views.py',
+            'calendar_app/utils.py',
             'while current_slot < unavail_end:',
             'while current_slot <= unavail_end:',
             'Mutation 8: Change < to <= in unavailability marking'
+        )
+
+        # NEW MUTATION 9: Test password length validation
+        self.test_mutation(
+            'calendar_app/utils.py',
+            'if length < 8:\n        raise ValueError("Password length must be at least 8 characters.")',
+            'if length < 6:\n        raise ValueError("Password length must be at least 8 characters.")',
+            'Mutation 9: Change minimum password length from 8 to 6'
+        )
+
+        # NEW MUTATION 10: Test password character requirements (numbers)
+        self.test_mutation(
+            'calendar_app/utils.py',
+            '# Add 2 unique numbers\n    available_numbers = numbers.copy()\n    for _ in range(2):',
+            '# Add 2 unique numbers\n    available_numbers = numbers.copy()\n    for _ in range(1):',
+            'Mutation 10: Change required number count from 2 to 1'
+        )
+
+        # NEW MUTATION 11: Test description length validation in UnavailabilityForm
+        self.test_mutation(
+            'calendar_app/forms.py',
+            '# Validate length (redundant with maxlength, but server-side is critical)\n            if len(description) > 200:\n                raise forms.ValidationError(\'Description must be 200 characters or less.\')',
+            '# Validate length (redundant with maxlength, but server-side is critical)\n            if len(description) > 300:\n                raise forms.ValidationError(\'Description must be 200 characters or less.\')',
+            'Mutation 11: Change description max length from 200 to 300'
         )
 
         self.print_results()

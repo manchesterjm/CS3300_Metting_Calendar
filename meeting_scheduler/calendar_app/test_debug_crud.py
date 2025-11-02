@@ -51,7 +51,10 @@ class DebugGroupCRUDTest(TestCase):
         )
 
         print(f"\n[OK] POST response status: {response.status_code}")
-        print(f"[OK] Response context keys: {list(response.context.keys()) if hasattr(response, 'context') and response.context else 'No context'}")
+        context_keys = (list(response.context.keys())
+                        if hasattr(response, 'context') and response.context
+                        else 'No context')
+        print(f"[OK] Response context keys: {context_keys}")
 
         if hasattr(response, 'context') and response.context:
             free_times = response.context.get('free_times')
