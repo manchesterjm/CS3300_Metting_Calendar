@@ -1,0 +1,32 @@
+services:
+  # Django Web Service
+  - type: web
+    name: meeting-scheduler
+    runtime: python
+    plan: free
+    buildCommand: "./build.sh"
+    startCommand: "gunicorn meeting_scheduler.wsgi:application"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.13.5
+      - key: DATABASE_URL
+        fromDatabase:
+          name: meeting-scheduler-db
+          property: connectionString
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DJANGO_SETTINGS_MODULE
+        value: meeting_scheduler.settings
+      - key: DEBUG
+        value: False
+      - key: ALLOWED_HOSTS
+        sync: false
+    autoDeploy: true
+    healthCheckPath: /
+
+databases:
+  # PostgreSQL Database
+  - name: meeting-scheduler-db
+    plan: free
+    databaseName: meeting_scheduler
+    user: meeting_scheduler_user

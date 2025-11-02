@@ -1,0 +1,145 @@
+# Meeting Calendar Web App – User Manual
+
+This document provides step-by-step instructions for setting up and running the Meeting Calendar Web App on an Ubuntu Virtual Machine (VM). Follow these steps to set up the environment, load the project files, and start the Django server.
+
+---
+
+**1. Set Up Your Ubuntu Virtual Machine**
+
+- **Create and Start the VM:**
+  - Download the latest Ubuntu ISO (Ubuntu 20.04 LTS or later is recommended) from [Ubuntu Downloads](https://ubuntu.com/download).
+  - Using virtualization software such as VirtualBox or VMware, create a new VM with at least 2GB RAM, 20GB disk space, and set the network adapter to "Bridged Adapter" (or configure NAT with port forwarding for development).
+  - Boot the VM using the Ubuntu ISO, install Ubuntu following the on-screen prompts, and then boot into your new Ubuntu system.
+  
+- **Update Your System (Recommended):**
+  - Open a terminal and run:
+    ```bash
+    sudo apt update && sudo apt upgrade -y
+    ```
+
+---
+
+**2. Install Python and Django**
+
+- **Install Required Software:**
+  - In the terminal, install Python 3, pip, and virtual environment tools with:
+    ```bash
+    sudo apt install python3 python3-pip python3-venv -y
+    ```
+  
+- **Prepare the Project Directory:**
+  - Create a directory for the project and navigate into it:
+    ```bash
+    mkdir ~/meeting_calendar_project
+    cd ~/meeting_calendar_project
+    ```
+  
+- **Transfer the Project Files:**
+  - Copy your project ZIP file from your local computer to the VM using SCP, SFTP, or shared folders.
+  - Unzip the project:
+    ```bash
+    sudo apt install unzip -y   # if unzip isn’t already installed
+    unzip project.zip           # Replace "project.zip" with your actual filename
+    ```
+  - This should extract your project files—including `manage.py`—into a folder.
+
+---
+
+**3. Set Up the Django Environment**
+
+- **Create and Activate a Virtual Environment:**
+  - In the project root (where `manage.py` is located), run:
+    ```bash
+    python3 -m venv env
+    source env/bin/activate
+    ```
+  - Your command prompt should now indicate that the virtual environment is active (e.g., it will show `(env)`).
+
+- **Install Django (and Other Dependencies):**
+  - If you have a `requirements.txt` file:
+    ```bash
+    pip install -r requirements.txt
+    ```
+  - Otherwise, manually install Django with:
+    ```bash
+    pip install django
+    ```
+
+---
+
+**4. Configure the Django Project**
+
+- **Update Settings:**
+  - Open `meeting_scheduler/settings.py` in your project directory.
+  - Update the `ALLOWED_HOSTS` variable to include your VM's IP address and localhost. For example:
+    ```python
+    ALLOWED_HOSTS = ['128.198.51.79', 'localhost']
+    ```
+  - Adjust any other configurations (such as database settings or static file settings) as needed.
+
+---
+
+**5. Set Up the Database**
+
+- **Run Migrations:**
+  - Generate and apply migrations with:
+    ```bash
+    python manage.py makemigrations
+    python manage.py migrate
+    ```
+
+---
+
+**6. Run the Development Server**
+
+- **Start the Server:**
+  - Ensure your virtual environment is active, then run:
+    ```bash
+    python manage.py runserver 0.0.0.0:8000
+    ```
+  - You should see output indicating the server is running at `http://0.0.0.0:8000/`.
+
+- **Access the Web App:**
+  - On your local computer, open a web browser and navigate to:
+    ```
+    http://<your-vm-ip>:8000/
+    ```
+    Replace `<your-vm-ip>` with your actual VM IP address (e.g., `http://128.198.51.79:8000/`).
+
+- **Optional – Run the Server in the Background:**
+  - To run the server without keeping the terminal open, use:
+    ```bash
+    nohup python manage.py runserver 0.0.0.0:8000 &
+    ```
+  - This command runs the server in the background, and logs are written to `nohup.out`.
+
+---
+
+**7. Troubleshooting and Additional Information**
+
+- **Auto-Reload:**  
+  With `DEBUG=True`, Django will automatically reload the server when you modify project files. Look for log messages indicating that files changed and the server restarted.
+
+- **Virtual Environment:**  
+  Always ensure your virtual environment is activated (`source env/bin/activate`) before running Django commands.
+
+- **Network Settings:**  
+  If you cannot access the app from your browser, verify your VM’s network settings (for example, using a Bridged Adapter) or check port forwarding if you are using NAT.
+
+- **Stopping the Server:**  
+  - To stop the server running in the foreground, press `Ctrl+C`.
+  - If running with nohup, find the process with:
+    ```bash
+    ps aux | grep runserver
+    ```
+    Then stop it with:
+    ```bash
+    kill <PID>
+    ```
+
+---
+
+**Summary:**  
+These instructions walk you through creating an Ubuntu VM, installing Python and Django, transferring your project files, configuring your project, setting up the database, and finally running the Django server. With these steps completed, your Meeting Calendar Web App will be up and running on your Ubuntu VM.
+
+End of User Manual.

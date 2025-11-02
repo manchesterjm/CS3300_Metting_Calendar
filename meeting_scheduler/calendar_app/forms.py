@@ -1,0 +1,284 @@
+"""
+Django forms for the calendar application.
+
+This module defines forms for managing unavailability entries, including
+creation, validation, and deletion of time periods when users are unavailable
+for meetings. Also includes forms for group management and shared calendars.
+"""
+import datetime
+
+from django import forms
+from django.contrib.auth.models import User
+from .models import Unavailability, Group, GroupUnavailability
+
+
+class UnavailabilityForm(forms.ModelForm):
+    """
+    Form for creating and displaying unavailability entries.
+
+    This form handles the creation of new unavailability entries with automatic
+    date defaulting to today's date. It includes conditional validation based
+    on the submit_type parameter to prevent invalid entries when creating new
+    unavailability records.
+
+    Args:
+        submit_type (str, optional): Type of form submission ('submit_unavailability'
+            enables strict validation). Defaults to None.
+    """
+
+    def __init__(self, *args, **kwargs):
+        """
+        Initialize the UnavailabilityForm with custom default values.
+
+        Sets the date field default to today's date and configures widget
+        attributes for proper browser display.
+
+        Args:
+            *args: Variable length argument list.
+            **kwargs: Arbitrary keyword arguments. May include 'submit_type'
+                which is popped before calling super().__init__().
+        """
+        # Pop the submit_type keyword if provided (used for conditional validation)
+        self.submit_type = kwargs.pop('submit_type', None)
+        super().__init__(*args, **kwargs)
+        # Set the default date to today's date
+        today = datetime.date.today()
+        today_str = today.strftime('%Y-%m-%d')
+        self.fields['date'].initial = today
+        # Update the widget value attribute so the browser shows today's date
+        self.fields['date'].widget.attrs.update({'value': today_str})
+
+    class Meta:
+        model = Unavailability
+        fields = ['date', 'start_time', 'end_time']
+        widgets = {
+            'date': forms.DateInput(
+                attrs={'type': 'date'}
+            ),
+            'start_time': forms.TimeInput(
+                attrs={'type': 'time', 'value': '00:00'}
+            ),
+            'end_time': forms.TimeInput(
+                attrs={'type': 'time', 'value': '00:00'}
+            ),
+        }
+        initial = {
+            # if a static initial date is required, place it here and then comment out
+            # the code above that sets the date to the current date
+            'start_time': datetime.time(0, 0),
+            'end_time': datetime.time(0, 0),
+        }
+
+    def clean(self):
+        """
+        Validate form data with conditional checks based on submit_type.
+
+        When submit_type is 'submit_unavailability', performs additional validation
+        to ensure users have changed default values before submission to prevent
+        database corruption from unintentional default entries.
+
+        Returns:
+            dict: The cleaned data dictionary from form validation.
+
+        Raises:
+            ValidationError: If required fields still contain default values when
+                submitting a new unavailability entry.
+        """
+        cleaned_data = super().clean()
+        # Only perform default-check validation when submitting new unavailability
+        if self.submit_type == 'submit_unavailability':
+            # Check against fake default values to ensure user changed inputs
+            # Not strictly needed with dynamic date default, but kept for flexibility
+            fake_default_date = datetime.date(2025, 1, 1)
+            fake_default_time = datetime.time(0, 0)
+            date = cleaned_data.get('date')
+            start_time = cleaned_data.get('start_time')
+            end_time = cleaned_data.get('end_time')
+            # Validate that user changed date and times from defaults
+            if date == fake_default_date:
+                self.add_error('date', "Please select a valid date.")
+            if start_time == fake_default_time:
+                self.add_error('start_time', "Please select a valid start time.")
+            if end_time == fake_default_time:
+                self.add_error('end_time', "Please select a valid end time.")
+        return cleaned_data
+
+
+class DeleteSelectedForm(forms.Form):
+    """
+    Form for selecting multiple unavailability entries for deletion.
+
+    This form provides checkboxes for selecting one or more unavailability
+    entries to delete. The choices are populated dynamically in the view
+    based on the last five entries in the database.
+
+    Attributes:
+        entry_ids: Multiple choice field containing entry IDs for deletion.
+            Uses checkboxes for user-friendly multi-selection.
+    """
+    entry_ids = forms.MultipleChoiceField(
+        required=False,
+        widget=forms.CheckboxSelectMultiple
+    )
+
+
+class GroupCreateForm(forms.ModelForm):
+    """
+    Form for creating a new group.
+
+    This form validates that the group name is unique and not empty.
+
+    Attributes:
+        name: CharField for the group name (max 100 characters).
+    """
+
+    class Meta:
+        model = Group
+        fields = ['name']
+        widgets = {
+            'name': forms.TextInput(attrs={
+                'placeholder': 'Enter group name',
+                'maxlength': 100,
+                'class': 'form-input'
+            })
+        }
+
+    def clean_name(self):
+        """
+        Validate that the group name is unique.
+
+        Returns:
+            str: The cleaned group name.
+
+        Raises:
+            ValidationError: If a group with this name already exists.
+        """
+        name = self.cleaned_data.get('name')
+        if Group.objects.filter(name=name).exists():
+            raise forms.ValidationError('A group with this name already exists.')
+        return name
+
+
+class AddMemberForm(forms.Form):
+    """
+    Form for adding a member to a group by username.
+
+    Validates that the username exists in the system.
+
+    Attributes:
+        username: CharField for entering the username to add.
+    """
+
+    username = forms.CharField(
+        max_length=150,
+        widget=forms.TextInput(attrs={
+            'placeholder': 'Enter username',
+            'autocomplete': 'off',
+            'class': 'form-input'
+        })
+    )
+
+    def clean_username(self):
+        """
+        Validate that the username exists.
+
+        Returns:
+            str: The cleaned username.
+
+        Raises:
+            ValidationError: If the user does not exist.
+        """
+        username = self.cleaned_data.get('username')
+        if not User.objects.filter(username=username).exists():
+            raise forms.ValidationError('User does not exist.')
+        return username
+
+
+class GroupUnavailabilityForm(forms.ModelForm):
+    """
+    Form for creating group unavailability entries.
+
+    Similar to UnavailabilityForm but includes an optional description field
+    and is used for group calendars.
+
+    Args:
+        submit_type (str, optional): Type of form submission ('submit_unavailability'
+            enables strict validation). Defaults to None.
+    """
+
+    def __init__(self, *args, **kwargs):
+        """
+        Initialize the GroupUnavailabilityForm with custom default values.
+
+        Sets the date field default to today's date.
+
+        Args:
+            *args: Variable length argument list.
+            **kwargs: Arbitrary keyword arguments. May include 'submit_type'.
+        """
+        self.submit_type = kwargs.pop('submit_type', None)
+        super().__init__(*args, **kwargs)
+
+        today = datetime.date.today()
+        today_str = today.strftime('%Y-%m-%d')
+        self.fields['date'].initial = today
+        self.fields['date'].widget.attrs.update({'value': today_str})
+
+    class Meta:
+        model = GroupUnavailability
+        fields = ['date', 'start_time', 'end_time', 'description']
+        widgets = {
+            'date': forms.DateInput(attrs={'type': 'date'}),
+            'start_time': forms.TimeInput(attrs={'type': 'time', 'value': '00:00'}),
+            'end_time': forms.TimeInput(attrs={'type': 'time', 'value': '00:00'}),
+            'description': forms.TextInput(attrs={
+                'placeholder': 'Optional: Add description (e.g., "Team meeting")',
+                'maxlength': 200,
+                'class': 'form-input'
+            })
+        }
+
+    def clean(self):
+        """
+        Validate form data with conditional checks.
+
+        When submit_type is 'submit_unavailability', validates that users
+        have changed default time values.
+
+        Returns:
+            dict: The cleaned data dictionary.
+
+        Raises:
+            ValidationError: If default time values are submitted.
+        """
+        cleaned_data = super().clean()
+
+        if self.submit_type == 'submit_unavailability':
+            fake_default_time = datetime.time(0, 0)
+            start_time = cleaned_data.get('start_time')
+            end_time = cleaned_data.get('end_time')
+
+            if start_time == fake_default_time:
+                self.add_error('start_time', "Please select a valid start time.")
+            if end_time == fake_default_time:
+                self.add_error('end_time', "Please select a valid end time.")
+            if start_time and end_time and start_time >= end_time:
+                self.add_error('end_time', "End time must be after start time.")
+
+        return cleaned_data
+
+
+class GroupDeleteSelectedForm(forms.Form):
+    """
+    Form for selecting group unavailability entries to delete.
+
+    Similar to DeleteSelectedForm but for group calendar entries.
+
+    Attributes:
+        entry_ids: Multiple choice field for selecting entries to delete.
+    """
+
+    entry_ids = forms.MultipleChoiceField(
+        required=False,
+        widget=forms.CheckboxSelectMultiple
+    )

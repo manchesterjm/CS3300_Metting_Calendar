@@ -1,0 +1,145 @@
+{% extends "calendar_app/base.html" %}
+
+{% block title %}Delete {{ group.name }} - Meeting Calendar{% endblock %}
+
+{% block extra_style %}
+h1 {
+    color: #e74c3c;
+    margin-bottom: 10px;
+    text-align: center;
+}
+
+.delete-header {
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+.delete-header p {
+    color: #7f8c8d;
+    font-size: 14px;
+}
+
+.warning-box {
+    background-color: #fee;
+    border-left: 4px solid #e74c3c;
+    padding: 20px;
+    margin-bottom: 30px;
+    border-radius: 4px;
+    max-width: 600px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.warning-box h2 {
+    color: #c0392b;
+    margin: 0 0 15px 0;
+    font-size: 18px;
+}
+
+.warning-box ul {
+    list-style-position: inside;
+    color: #721c24;
+    margin: 10px 0;
+}
+
+.warning-box ul li {
+    padding: 5px 0;
+}
+
+.confirmation-form {
+    background-color: #f8f9fa;
+    padding: 25px;
+    border-radius: 8px;
+    margin-bottom: 30px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    max-width: 500px;
+    margin-left: auto;
+    margin-right: auto;
+    text-align: center;
+}
+
+.confirmation-form p {
+    color: #2c3e50;
+    font-size: 16px;
+    margin-bottom: 20px;
+}
+
+.button-group {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+}
+
+.delete-btn {
+    padding: 12px 24px;
+    background-color: #e74c3c;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: bold;
+    transition: background-color 0.3s;
+}
+
+.delete-btn:hover {
+    background-color: #c0392b;
+}
+
+.cancel-link {
+    display: inline-block;
+    padding: 12px 24px;
+    background-color: #95a5a6;
+    color: white;
+    text-decoration: none;
+    border-radius: 4px;
+    font-size: 14px;
+    transition: background-color 0.3s;
+}
+
+.cancel-link:hover {
+    background-color: #7f8c8d;
+}
+
+@media (max-width: 768px) {
+    .button-group {
+        flex-direction: column;
+    }
+
+    .delete-btn,
+    .cancel-link {
+        width: 100%;
+        text-align: center;
+    }
+}
+{% endblock %}
+
+{% block content %}
+    <div class="delete-header">
+        <h1>Delete Group: {{ group.name }}</h1>
+        <p>This action cannot be undone</p>
+    </div>
+
+    <div class="warning-box">
+        <h2>Warning: Permanent Deletion</h2>
+        <p>Deleting this group will:</p>
+        <ul>
+            <li>Remove all group members</li>
+            <li>Delete all group unavailability entries</li>
+            <li>Permanently remove the group from the system</li>
+            <li>This action cannot be undone</li>
+        </ul>
+    </div>
+
+    <div class="confirmation-form">
+        <p><strong>Are you sure you want to delete "{{ group.name }}"?</strong></p>
+
+        <div class="button-group">
+            <form method="post" style="margin: 0;">
+                {% csrf_token %}
+                <button type="submit" class="delete-btn" onclick="return confirm('Are you absolutely sure? This will permanently delete the group and all its data.');">Yes, Delete Group</button>
+            </form>
+            <a href="{% url 'group_detail' group.id %}" class="cancel-link">Cancel</a>
+        </div>
+    </div>
+{% endblock %}

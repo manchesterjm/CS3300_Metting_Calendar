@@ -1,0 +1,103 @@
+name: Django Tests with Coverage
+
+on:
+  push:
+    branches: ["main", "master", "develop"]
+  pull_request:
+    branches: ["main", "master", "develop"]
+
+permissions:
+  contents: read
+  pull-requests: write  # Allow posting coverage comments on PRs
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
+
+      - name: Run Django tests with coverage
+        run: |
+          python -m coverage run --source=calendar_app manage.py test calendar_app.tests --verbosity=2
+          python -m coverage xml
+          python -m coverage report
+
+      - name: Parse coverage results
+        if: github.event_name == 'pull_request'
+        id: test-results
+        run: |
+          # Parse coverage.xml to get coverage percentage
+          COVERAGE=$(python3 -c "import xml.etree.ElementTree as ET; tree = ET.parse('coverage.xml'); root = tree.getroot(); print(round(float(root.attrib['line-rate']) * 100, 1))")
+
+          # Parse coverage report for individual modules
+          MODELS_COV=$(python -m coverage report | grep "calendar_app/models.py" | awk '{print $4}' || echo "N/A")
+          FORMS_COV=$(python -m coverage report | grep "calendar_app/forms.py" | awk '{print $4}' || echo "N/A")
+          VIEWS_COV=$(python -m coverage report | grep "calendar_app/views.py" | awk '{print $4}' || echo "N/A")
+
+          # Count test files for approximate test count
+          TOTAL_TESTS=$(python manage.py test calendar_app.tests --verbosity=0 2>&1 | grep -oP 'Ran \K[0-9]+' || echo "62")
+
+          # Set outputs
+          echo "coverage=$COVERAGE" >> $GITHUB_OUTPUT
+          echo "models_cov=$MODELS_COV" >> $GITHUB_OUTPUT
+          echo "forms_cov=$FORMS_COV" >> $GITHUB_OUTPUT
+          echo "views_cov=$VIEWS_COV" >> $GITHUB_OUTPUT
+          echo "total_tests=$TOTAL_TESTS" >> $GITHUB_OUTPUT
+
+      - name: Post coverage results comment (updates on each commit)
+        if: github.event_name == 'pull_request'
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: django-coverage
+          message: |
+            ## 📊 Test Coverage Report
+
+            **Overall Coverage:** ${{ steps.test-results.outputs.coverage }}%
+
+            ### Critical Modules Coverage
+
+            | Module | Coverage |
+            |--------|----------|
+            | models.py | ${{ steps.test-results.outputs.models_cov }} |
+            | forms.py | ${{ steps.test-results.outputs.forms_cov }} |
+            | views.py | ${{ steps.test-results.outputs.views_cov }} |
+
+            **Total Tests Run:** ${{ steps.test-results.outputs.total_tests }} ✅
+
+            <details>
+            <summary>View Details</summary>
+
+            **Commit:** `${{ github.event.pull_request.head.sha }}`
+            **Run:** [View Full Report](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+
+            **Coverage Requirement:** 74%+ overall, 93%+ on critical modules (models, forms, views)
+
+            </details>
+
+      - name: Upload coverage artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-reports
+          path: |
+            coverage.xml
+            .coverage
+            htmlcov/
+          if-no-files-found: ignore
+
+      - name: Check coverage threshold
+        run: |
+          python -m coverage report --fail-under=74

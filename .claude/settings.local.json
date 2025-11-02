@@ -1,0 +1,34 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python manage.py:*)",
+      "Bash(pip install:*)",
+      "Bash(pylint:*)",
+      "Bash(mutmut run:*)",
+      "Bash(mut.py:*)",
+      "Bash(coverage run:*)",
+      "Bash(coverage report:*)",
+      "Bash(python run_mutation_test.py:*)",
+      "Bash(python run_all_tests.py:*)",
+      "Bash(git init:*)",
+      "Bash(git config:*)",
+      "Bash(git remote add:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$(cat <<''EOF''\nInitial commit: Meeting Scheduler with comprehensive testing suite\n\nFeatures:\n- Django 5.1.6 meeting scheduler web application\n- Unavailability tracking with date/time management\n- Free time slot calculation (30-minute intervals, 8:00-20:00)\n- CRUD operations for unavailability entries\n- Responsive HTML template with mobile support\n\nTesting Suite (100% Mutation Score Achievement):\n- 21 comprehensive unit tests\n- 9 fuzz tests with 350+ generated test cases\n- Custom mutation testing framework\n- 93%+ code coverage on critical modules (models, forms, views)\n- Automated test runner (run_all_tests.py)\n\nCode Quality:\n- Pylint score: 10.0/10\n- All code follows PEP 8 standards\n- Comprehensive inline documentation\n\nDocumentation:\n- CLAUDE.md: Development guide and testing workflow\n- TESTING_REPORT.md: Comprehensive testing analysis\n- TESTING_WORKFLOW.md: Step-by-step testing procedures\n- TEST_IMPROVEMENTS.md: Before/after testing improvements\n- TESTING_IMPLEMENTATION_SUMMARY.md: Complete testing overview\n- setup_instructions.txt: Ubuntu VM deployment guide\n\nTechnology Stack:\n- Django 5.1.6\n- SQLite database\n- Hypothesis for fuzz testing\n- Coverage.py for code coverage\n- Pylint for code quality\n- Custom mutation testing framework\n\nAchievement: 100% mutation score (8/8 mutations killed)\n\n🤖 Generated with Claude Code (claude.ai/code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(git push:*)",
+      "Bash(bandit:*)",
+      "Bash(safety check:*)",
+      "Bash(pip-audit:*)",
+      "Bash(semgrep:*)",
+      "Bash(git commit -m \"$(cat <<''EOF''\nSecurity and Style Guide Implementation: Zero Vulnerabilities Achieved\n\nMajor security enhancements and code quality improvements implemented across\nthe entire Meeting Scheduler application following industry best practices.\n\nSecurity Improvements:\n- Upgraded Django 5.1.6 → 5.1.13 (patched 7 critical vulnerabilities)\n- Fixed CVE-2025-48432, CVE-2025-32873, CVE-2025-27556, CVE-2025-57833\n- Fixed CVE-2025-26699 and 2 GitHub security advisories\n- Configured Bandit, Safety, pip-audit, and Semgrep security scanners\n- Created automated security scan runner (run_security_scans.py)\n- All security scans now pass with zero vulnerabilities\n\nProduction Security Settings:\n- Enabled clickjacking protection (X-Frame-Options: DENY)\n- Configured MIME type sniffing prevention\n- Enabled XSS browser protection\n- Hardened session cookies (HttpOnly, SameSite=Strict, 1-hour timeout)\n- Secured CSRF tokens (HttpOnly, SameSite=Strict)\n- Configured security logging (logs/security.log)\n- Added HTTPS-ready settings for production deployment\n- Documented SECRET_KEY environment variable usage\n\nCode Quality Improvements:\n- Added comprehensive Google-style docstrings to all modules\n- Module-level docstrings: 7 files\n- Class docstrings with Attributes: 3 classes  \n- Method/function docstrings with Args/Returns: 10+ functions\n- Pylint score improved: 6.86/10 → 10.00/10 (perfect score)\n- Maintained PEP 8 compliance (120-char line length)\n\nDocumentation Updates:\n- Added \"Security Practices\" section to CLAUDE.md\n- Security scanning tool installation and usage instructions\n- Production deployment security checklist\n- Security configuration explanations\n- Security best practices guide\n- Created SECURITY_AND_STYLE_IMPLEMENTATION.md (comprehensive summary)\n\nFiles Created:\n- .bandit - Bandit security scanner configuration (YAML)\n- .semgrep.yml - Semgrep Django security rules\n- requirements-dev.txt - Development and security tool dependencies\n- run_security_scans.py - Automated security scan runner\n- SECURITY_AND_STYLE_IMPLEMENTATION.md - Implementation documentation\n- logs/ directory - For security event logging\n\nFiles Modified:\n- requirements.txt - Django 5.1.13 (security-patched)\n- meeting_scheduler/settings.py - Production security configuration\n- calendar_app/models.py - Comprehensive docstrings\n- calendar_app/forms.py - Comprehensive docstrings\n- calendar_app/views.py - Comprehensive docstrings\n- calendar_app/urls.py - Module docstring\n- calendar_app/__init__.py - Module docstring\n- CLAUDE.md - Added Security Practices section\n- .gitignore - Added logs/ exclusion\n\nTesting Verification (All Tests Pass):\n- Pylint: 10.00/10 (perfect score on main files)\n- Unit Tests: 21/21 PASSED\n- Fuzz Tests: 9/9 PASSED\n- All Tests: 30/30 PASSED\n- Mutation Score: 100% (8/8 mutations killed)\n- Code Coverage: 93%+ on critical modules\n- No regressions introduced\n\nSecurity Scan Results:\n- Bandit: No issues identified (690 lines scanned)\n- Safety: 0 vulnerabilities found\n- pip-audit: No known vulnerabilities\n- Semgrep: 0 findings (13 files scanned)\n\nKey Achievements:\n✅ Zero security vulnerabilities (7 → 0)\n✅ Perfect code quality (10.00/10 pylint)\n✅ 100% mutation score maintained\n✅ Comprehensive documentation coverage\n✅ Production-ready security configuration\n✅ CI/CD ready security automation\n✅ Industry-leading security standards\n\nTechnology Stack Updates:\n- Django 5.1.13 (security-patched)\n- Bandit 1.8.6\n- Safety 3.6.2\n- pip-audit 2.9.0\n- Semgrep 1.142.0\n\nImplementation exceeds industry standards for Django security and code quality.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(del db.sqlite3)",
+      "Bash(migrations/__init__.py)",
+      "Bash(timeout 5 python:*)",
+      "Bash(timeout 300 python:*)",
+      "Bash(git commit:*)",
+      "Bash(python -c:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

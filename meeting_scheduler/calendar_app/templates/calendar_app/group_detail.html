@@ -1,0 +1,206 @@
+{% extends "calendar_app/base.html" %}
+
+{% block title %}{{ group.name }} - Meeting Calendar{% endblock %}
+
+{% block extra_style %}
+h1 {
+    color: #2c3e50;
+    margin-bottom: 10px;
+    text-align: center;
+}
+
+.group-header {
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+.group-header p {
+    color: #7f8c8d;
+    font-size: 14px;
+}
+
+.action-buttons {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    margin-bottom: 30px;
+    flex-wrap: wrap;
+}
+
+.action-buttons a,
+.action-buttons button {
+    padding: 10px 20px;
+    color: white;
+    text-decoration: none;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background-color 0.3s;
+}
+
+.calendar-btn {
+    background-color: #1abc9c;
+}
+
+.calendar-btn:hover {
+    background-color: #16a085;
+}
+
+.add-member-btn {
+    background-color: #3498db;
+}
+
+.add-member-btn:hover {
+    background-color: #2980b9;
+}
+
+.delete-btn {
+    background-color: #e74c3c;
+}
+
+.delete-btn:hover {
+    background-color: #c0392b;
+}
+
+.back-btn {
+    background-color: #95a5a6;
+}
+
+.back-btn:hover {
+    background-color: #7f8c8d;
+}
+
+h2 {
+    color: #2c3e50;
+    margin-top: 30px;
+    margin-bottom: 15px;
+}
+
+.members-list {
+    list-style: none;
+    padding: 0;
+}
+
+.member-item {
+    background-color: #f8f9fa;
+    padding: 15px 20px;
+    margin-bottom: 10px;
+    border-radius: 8px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.member-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.owner-badge {
+    background-color: #f39c12;
+    color: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.remove-form {
+    margin: 0;
+}
+
+.remove-btn {
+    padding: 6px 12px;
+    background-color: #e74c3c;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: background-color 0.3s;
+}
+
+.remove-btn:hover {
+    background-color: #c0392b;
+}
+
+.empty-message {
+    text-align: center;
+    color: #7f8c8d;
+    padding: 40px 20px;
+    background-color: #f8f9fa;
+    border-radius: 8px;
+}
+
+@media (max-width: 768px) {
+    .action-buttons {
+        flex-direction: column;
+    }
+
+    .action-buttons a,
+    .action-buttons button {
+        width: 100%;
+        text-align: center;
+    }
+
+    .member-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+
+    .remove-form {
+        width: 100%;
+    }
+
+    .remove-btn {
+        width: 100%;
+    }
+}
+{% endblock %}
+
+{% block content %}
+    <div class="group-header">
+        <h1>{{ group.name }}</h1>
+        <p>Created by {{ group.created_by.username }} on {{ group.created_at|date:"F d, Y" }}</p>
+    </div>
+
+    <div class="action-buttons">
+        <a href="{% url 'group_calendar' group.id %}" class="calendar-btn">View Calendar</a>
+        {% if is_owner %}
+            <a href="{% url 'group_add_member' group.id %}" class="add-member-btn">Add Member</a>
+            <a href="{% url 'group_delete' group.id %}" class="delete-btn">Delete Group</a>
+        {% endif %}
+        <a href="{% url 'group_list' %}" class="back-btn">Back to Groups</a>
+    </div>
+
+    <h2>Members ({{ members.count }})</h2>
+
+    {% if members %}
+        <ul class="members-list">
+            {% for member in members %}
+                <li class="member-item">
+                    <div class="member-info">
+                        <span>{{ member.username }}</span>
+                        {% if member == group.created_by %}
+                            <span class="owner-badge">OWNER</span>
+                        {% endif %}
+                    </div>
+                    {% if is_owner and member != group.created_by %}
+                        <form method="post" action="{% url 'group_remove_member' group.id member.id %}" class="remove-form">
+                            {% csrf_token %}
+                            <button type="submit" class="remove-btn" onclick="return confirm('Remove {{ member.username }} from the group?');">Remove</button>
+                        </form>
+                    {% endif %}
+                </li>
+            {% endfor %}
+        </ul>
+    {% else %}
+        <div class="empty-message">
+            <p>No members in this group yet.</p>
+        </div>
+    {% endif %}
+{% endblock %}

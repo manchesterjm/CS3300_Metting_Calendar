@@ -1,0 +1,108 @@
+{% extends "calendar_app/base.html" %}
+
+{% block title %}Create Group - Meeting Calendar{% endblock %}
+
+{% block extra_style %}
+h1 {
+    color: #2c3e50;
+    margin-bottom: 30px;
+    text-align: center;
+}
+
+form {
+    background-color: #f8f9fa;
+    padding: 25px;
+    border-radius: 8px;
+    margin-bottom: 30px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    max-width: 500px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+form p {
+    margin-bottom: 15px;
+}
+
+form label {
+    display: block;
+    font-weight: bold;
+    color: #34495e;
+    margin-bottom: 5px;
+}
+
+form input[type="text"] {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #bdc3c7;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+form button {
+    padding: 10px 20px;
+    margin: 5px 5px 5px 0;
+    background-color: #1abc9c;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background-color 0.3s;
+}
+
+form button:hover {
+    background-color: #16a085;
+}
+
+.back-link {
+    display: inline-block;
+    padding: 10px 20px;
+    background-color: #95a5a6;
+    color: white;
+    text-decoration: none;
+    border-radius: 4px;
+    font-size: 14px;
+    transition: background-color 0.3s;
+}
+
+.back-link:hover {
+    background-color: #7f8c8d;
+}
+
+.button-group {
+    display: flex;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+@media (max-width: 768px) {
+    form {
+        padding: 15px;
+    }
+
+    .button-group {
+        flex-direction: column;
+    }
+
+    form button,
+    .back-link {
+        width: 100%;
+        text-align: center;
+    }
+}
+{% endblock %}
+
+{% block content %}
+    <h1>Create New Group</h1>
+
+    <form method="post">
+        {% csrf_token %}
+        {{ form.as_p }}
+
+        <div class="button-group">
+            <button type="submit">Create Group</button>
+            <a href="{% url 'group_list' %}" class="back-link">Cancel</a>
+        </div>
+    </form>
+{% endblock %}

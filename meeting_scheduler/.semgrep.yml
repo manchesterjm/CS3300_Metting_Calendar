@@ -1,0 +1,50 @@
+rules:
+  - id: django-debug-true
+    patterns:
+      - pattern: DEBUG = True
+    message: "DEBUG should be False in production"
+    severity: WARNING
+    languages:
+      - python
+    paths:
+      include:
+        - settings.py
+
+  - id: django-secret-key-exposed
+    patterns:
+      - pattern: SECRET_KEY = "..."
+    message: "SECRET_KEY should not be hardcoded, use environment variables"
+    severity: ERROR
+    languages:
+      - python
+    paths:
+      include:
+        - settings.py
+
+  - id: sql-injection-raw-query
+    patterns:
+      - pattern: $MODEL.objects.raw(...)
+      - pattern-not: $MODEL.objects.raw("...", [...])
+    message: "Potential SQL injection - use parameterized queries"
+    severity: ERROR
+    languages:
+      - python
+
+  - id: xss-mark-safe
+    patterns:
+      - pattern: mark_safe(...)
+    message: "mark_safe() bypasses XSS protection - ensure input is sanitized"
+    severity: WARNING
+    languages:
+      - python
+
+  - id: csrf-exempt-usage
+    patterns:
+      - pattern: |
+          @csrf_exempt
+          def $FUNC(...):
+            ...
+    message: "CSRF protection disabled - ensure this is intentional"
+    severity: WARNING
+    languages:
+      - python

@@ -1,0 +1,18 @@
+# Django Framework
+Django==5.1.13
+
+# Production Server
+gunicorn==23.0.0
+
+# PostgreSQL Database Adapter
+psycopg2-binary==2.9.11
+
+# Static Files & Database URL Parsing
+whitenoise==6.11.0
+dj-database-url==3.0.1
+
+# Development & Testing
+pylint>=4.0.0
+hypothesis>=6.143.0
+coverage>=7.11.0
+pytest>=8.4.0
