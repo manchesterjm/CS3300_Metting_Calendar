@@ -1,0 +1,4 @@
+[mutmut]
+paths_to_mutate=calendar_app/models.py,calendar_app/forms.py,calendar_app/views.py
+tests_dir=calendar_app/
+runner=python manage.py test calendar_app.tests

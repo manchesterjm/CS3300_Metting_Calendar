@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python manage.py:*)",
+      "Bash(pip install:*)",
+      "Bash(pylint:*)",
+      "Bash(mutmut run:*)",
+      "Bash(mut.py:*)",
+      "Bash(coverage run:*)",
+      "Bash(coverage report:*)",
+      "Bash(python run_mutation_test.py:*)",
+      "Bash(python run_all_tests.py:*)",
+      "Bash(git init:*)",
+      "Bash(git config:*)",
+      "Bash(git remote add:*)",
+      "Bash(git add:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
