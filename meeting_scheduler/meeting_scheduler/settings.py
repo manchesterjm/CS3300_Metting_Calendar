@@ -251,8 +251,9 @@ LOGOUT_REDIRECT_URL = 'login'  # Redirect after logout
 # For development: emails printed to console (no SMTP credentials needed)
 # For production: configure SMTP settings with environment variables
 
-# DEVELOPMENT: Console backend (emails printed to terminal)
+# DEFAULT: Console backend (emails printed to terminal)
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+DEFAULT_FROM_EMAIL = 'noreply@meetingcalendar.local'
 
 # PRODUCTION: Uncomment and configure with environment variables
 # EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
@@ -263,4 +264,12 @@ EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 # EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD')
 # DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL')
 
-DEFAULT_FROM_EMAIL = 'noreply@meetingcalendar.local'
+# =============================================================================
+# LOCAL SETTINGS OVERRIDE
+# =============================================================================
+# Import local_settings.py if it exists (gitignored, for local development)
+# This allows overriding settings like EMAIL_BACKEND without committing credentials
+try:
+    from .local_settings import *
+except ImportError:
+    pass  # local_settings.py doesn't exist, use defaults above
