@@ -10,6 +10,8 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.1/ref/settings/
 """
 
+import os
+import dj_database_url
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -20,12 +22,14 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-g)_l^uuc5goqdb5t&93a4y_zp6vp!p)sx^9l*swc3usamzaw@='
+SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-g)_l^uuc5goqdb5t&93a4y_zp6vp!p)sx^9l*swc3usamzaw@=')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.environ.get('DEBUG', 'True') == 'True'
 
-ALLOWED_HOSTS = ['*']
+# Production: Will be set via ALLOWED_HOSTS environment variable (comma-separated)
+# Development: Allows all hosts for testing
+ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '*').split(',')
 
 
 # Application definition
@@ -42,6 +46,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',  # Serve static files in production
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -74,12 +79,25 @@ WSGI_APPLICATION = 'meeting_scheduler.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+# Use PostgreSQL in production (via DATABASE_URL), SQLite in development
+database_url = os.environ.get('DATABASE_URL')
+if database_url:
+    # Production: Use PostgreSQL from Render
+    DATABASES = {
+        'default': dj_database_url.config(
+            default=database_url,
+            conn_max_age=600,
+            conn_health_checks=True,
+        )
     }
-}
+else:
+    # Development: Use SQLite
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
 
 
 # Password validation
@@ -116,7 +134,11 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+
+# WhiteNoise static files configuration
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
@@ -135,13 +157,14 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # 4. Enable HTTPS-related security settings
 
 # Security Headers for Production
-# Uncomment these when deploying with HTTPS
-# SECURE_SSL_REDIRECT = True  # Redirect all HTTP to HTTPS
-# SESSION_COOKIE_SECURE = True  # Send session cookie only over HTTPS
-# CSRF_COOKIE_SECURE = True  # Send CSRF cookie only over HTTPS
-# SECURE_HSTS_SECONDS = 31536000  # HTTP Strict Transport Security (1 year)
-# SECURE_HSTS_INCLUDE_SUBDOMAINS = True
-# SECURE_HSTS_PRELOAD = True
+# Enable HTTPS security in production only
+if not DEBUG:
+    SECURE_SSL_REDIRECT = True  # Redirect all HTTP to HTTPS
+    SESSION_COOKIE_SECURE = True  # Send session cookie only over HTTPS
+    CSRF_COOKIE_SECURE = True  # Send CSRF cookie only over HTTPS
+    SECURE_HSTS_SECONDS = 31536000  # HTTP Strict Transport Security (1 year)
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
 
 # Content Security and Clickjacking Protection
 X_FRAME_OPTIONS = 'DENY'  # Prevent framing (clickjacking protection)
