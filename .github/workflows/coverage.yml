@@ -22,15 +22,18 @@ jobs:
         with:
           python-version: "3.13"
           cache: pip
+          cache-dependency-path: 'meeting_scheduler/requirements*.txt'
 
       - name: Install dependencies
         run: |
+          cd meeting_scheduler
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install -r requirements-dev.txt
 
       - name: Run Django tests with coverage
         run: |
+          cd meeting_scheduler
           python -m coverage run --source=calendar_app manage.py test calendar_app.tests --verbosity=2
           python -m coverage xml
           python -m coverage report
@@ -39,6 +42,7 @@ jobs:
         if: github.event_name == 'pull_request'
         id: test-results
         run: |
+          cd meeting_scheduler
           # Parse coverage.xml to get coverage percentage
           COVERAGE=$(python3 -c "import xml.etree.ElementTree as ET; tree = ET.parse('coverage.xml'); root = tree.getroot(); print(round(float(root.attrib['line-rate']) * 100, 1))")
 
@@ -93,11 +97,12 @@ jobs:
         with:
           name: coverage-reports
           path: |
-            coverage.xml
-            .coverage
-            htmlcov/
+            meeting_scheduler/coverage.xml
+            meeting_scheduler/.coverage
+            meeting_scheduler/htmlcov/
           if-no-files-found: ignore
 
       - name: Check coverage threshold
         run: |
+          cd meeting_scheduler
           python -m coverage report --fail-under=74

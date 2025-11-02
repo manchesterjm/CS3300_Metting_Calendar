@@ -23,15 +23,18 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
         cache: 'pip'
+        cache-dependency-path: 'meeting_scheduler/requirements*.txt'
 
     - name: Install dependencies
       run: |
+        cd meeting_scheduler
         python -m pip install --upgrade pip
         pip install -r requirements.txt
         pip install -r requirements-dev.txt
 
     - name: Run Pylint
       run: |
+        cd meeting_scheduler
         python -m pylint calendar_app/models.py calendar_app/forms.py calendar_app/views.py calendar_app/urls.py \
           --disable=C0114,C0115,C0116,R0903,R0914,R0912,R0915,E1101 \
           --max-line-length=120 \
@@ -39,22 +42,27 @@ jobs:
 
     - name: Run Unit Tests
       run: |
+        cd meeting_scheduler
         python manage.py test calendar_app.tests --verbosity=2
 
     - name: Run Fuzz Tests
       run: |
+        cd meeting_scheduler
         python manage.py test calendar_app.test_fuzz --verbosity=2
 
     - name: Run All Tests
       run: |
+        cd meeting_scheduler
         python manage.py test calendar_app --verbosity=1
 
     - name: Run Mutation Tests
       run: |
+        cd meeting_scheduler
         python run_mutation_test.py
 
     - name: Generate Coverage Report
       run: |
+        cd meeting_scheduler
         python -m coverage run --source=calendar_app manage.py test calendar_app.tests
         python -m coverage report --fail-under=74
         python -m coverage html
@@ -64,11 +72,12 @@ jobs:
       if: matrix.python-version == '3.13'
       with:
         name: coverage-report
-        path: htmlcov/
+        path: meeting_scheduler/htmlcov/
 
     - name: Run Security Scans
       if: matrix.python-version == '3.13'
       run: |
+        cd meeting_scheduler
         # Bandit
         python -m bandit -r calendar_app/ --configfile .bandit -f txt || true
 
@@ -77,6 +86,7 @@ jobs:
 
     - name: Check migrations
       run: |
+        cd meeting_scheduler
         python manage.py makemigrations --check --dry-run --no-input
 
   # Summary job that runs after all tests
