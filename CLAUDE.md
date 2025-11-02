@@ -160,7 +160,7 @@ python manage.py test calendar_app.test_fuzz --verbosity=2
 python manage.py test calendar_app --verbosity=1
 ```
 
-**Expected Result:** All 36 tests (27 unit + 9 fuzz) must pass
+**Expected Result:** All 141 tests (93 unit + 16 fuzz + 32 other) must pass
 
 #### Step 5: Run Mutation Tests
 ```bash
@@ -232,9 +232,9 @@ coverage html  # Report in htmlcov/index.html
 **All code changes MUST meet these criteria before being considered complete:**
 
 ✅ Pylint score: 9.0+ (or all issues fixed)
-✅ Unit tests: 27/27 passing
-✅ Fuzz tests: 9/9 passing
-✅ Total tests: 36/36 passing
+✅ Unit tests: 93/93 passing
+✅ Fuzz tests: 16/16 passing
+✅ Total tests: 141/141 passing
 ✅ Mutation score: 100%
 ✅ Code coverage: 93%+ on critical modules
 ✅ Security scans: 0 vulnerabilities (Bandit, Safety, pip-audit, Semgrep)
@@ -248,12 +248,13 @@ coverage html  # Report in htmlcov/index.html
 5. Then continue to next test type
 
 ### Current Test Statistics
-- Unit tests: 27 tests covering models, forms, views, and authentication
-- Fuzz tests: 9 tests with ~350 generated test cases
-- Total test cases: 36 tests + 350 fuzz-generated cases
-- Code coverage: 93%+ on critical modules (models, forms, views), 70% overall
+- Unit tests: 93 tests covering models, forms, views, groups, and authentication
+- Fuzz tests: 16 tests with ~350 generated test cases
+- Debug/Integration tests: 32 additional tests
+- Total test cases: 141 tests + 350 fuzz-generated cases
+- Code coverage: 93%+ on critical modules (models, forms, views), 74% overall
 - Mutation score: 100% (8/8 mutations killed)
-- Test execution time: ~1-2 seconds
+- Test execution time: ~2 seconds
 
 ### New Feature Testing Policy
 
@@ -421,13 +422,21 @@ The following security features are already configured:
 
 ## Architecture Notes
 
-### Single-View Application
-The entire application uses a single view function `calendar_view` in `calendar_app/views.py` that handles multiple POST actions via button names:
+### Calendar Architecture
 
-- `submit_unavailability`: Adds new unavailability records to the database
-- `show_free_times`: Calculates free 30-minute slots between 8:00-20:00 based on unavailability
-- `show_last_five`: Displays the 5 most recent unavailability entries
-- `delete_selected`: Deletes selected unavailability entries
+**Personal Calendar** (`calendar_app/views.py` - `calendar_view`):
+- Users manage their personal schedules
+- Handles multiple POST actions via button names:
+  - `submit_unavailability`: Adds new unavailability records
+  - `show_free_times`: Calculates free 30-minute slots (8:00-20:00) based on user's unavailability
+  - `show_last_five`: Displays the 5 most recent user entries
+  - `delete_selected`: Deletes selected user entries
+
+**Group Calendar** (`calendar_app/group_views.py` - `group_calendar_view`):
+- Read-only view that aggregates ALL group members' personal calendars
+- Shows common free times when everyone is available
+- No manual entry management - automatically calculated
+- Users manage schedules via personal calendar, group view shows aggregation
 
 ### Form Validation Strategy
 The `UnavailabilityForm` uses conditional validation based on `submit_type`:
@@ -459,8 +468,12 @@ Free time slots are calculated in 30-minute increments:
 See `PASSWORD_RESET_GUIDE.md` for step-by-step testing instructions.
 
 **Email Configuration (settings.py):**
-- **Development:** `EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'`
-- **Production:** Uncomment SMTP settings and configure with Gmail/SendGrid/Mailgun
+- **Current (Windows Development):** `EMAIL_BACKEND = 'calendar_app.email_backend.UnsecureEmailBackend'`
+  - Gmail SMTP (smtp.gmail.com:465) with SSL bypass for Windows certificate issues
+  - Real email sending via manchesterjm@gmail.com
+- **Alternative (Console):** `EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'`
+  - Emails printed to terminal (no real sending)
+- **Production:** Use standard SMTP backend with environment variables for credentials
 
 **Password Reset URLs:**
 - Request reset: `/password-reset/`
