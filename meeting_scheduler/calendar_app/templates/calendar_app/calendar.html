@@ -115,14 +115,20 @@ ul li label {
 	</div>
     </form>
 
-    {% if free_times %}
+    {% if free_times is not None %}
 	<hr> <!-- adds a solid line -->
         <h2 id="freeTimesResults" style="color: #1abc9c;">Free Times for {{ form.initial.date|date:"M d, Y" }}:</h2>
-        <ul>
-            {% for time in free_times %} <!-- starts a for loop -->
-                <li>{{ time }}</li> <!-- adds times to indiviual lines -->
-            {% endfor %} <!-- ends a for loop -->
-        </ul>
+        {% if free_times %}
+            <ul>
+                {% for time in free_times %} <!-- starts a for loop -->
+                    <li>{{ time }}</li> <!-- adds times to indiviual lines -->
+                {% endfor %} <!-- ends a for loop -->
+            </ul>
+        {% else %}
+            <p style="color: #27ae60; font-weight: bold; padding: 15px; background-color: #e8f8f5; border-radius: 5px;">
+                🎉 Great news! You have no unavailability entries for this date. All time slots (8:00 AM - 8:00 PM) are free!
+            </p>
+        {% endif %}
     {% endif %}
 
     {% if form_delete.fields.entry_ids.choices %} <!-- is there anything in the database, if so, display them -->

@@ -173,14 +173,20 @@ ul li label {
         </div>
     </form>
 
-    {% if free_times %}
+    {% if free_times is not None %}
         <hr>
         <h2 id="freeTimesResults" style="color: #1abc9c;">Free Times for {{ selected_date|date:"M d, Y" }}:</h2>
-        <ul>
-            {% for time in free_times %}
-                <li>{{ time }}</li>
-            {% endfor %}
-        </ul>
+        {% if free_times %}
+            <ul>
+                {% for time in free_times %}
+                    <li>{{ time }}</li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <p style="color: #27ae60; font-weight: bold; padding: 15px; background-color: #e8f8f5; border-radius: 5px;">
+                🎉 Excellent! All group members are available on this date. All time slots (8:00 AM - 8:00 PM) are free for scheduling!
+            </p>
+        {% endif %}
     {% endif %}
 {% endblock %}
 
