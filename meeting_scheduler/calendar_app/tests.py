@@ -18,8 +18,7 @@ from .forms import (
     DeleteSelectedForm,
     GroupCreateForm,
     AddMemberForm,
-    GroupUnavailabilityForm,
-    GroupDeleteSelectedForm
+    GroupUnavailabilityForm
 )
 
 
@@ -58,6 +57,15 @@ class UnavailabilityModelTest(TestCase):
         self.assertTrue(hasattr(self.unavailability, 'date'))
         self.assertTrue(hasattr(self.unavailability, 'start_time'))
         self.assertTrue(hasattr(self.unavailability, 'end_time'))
+
+    def test_user_can_edit_owner(self):
+        """Test that the owner can edit their own unavailability entry"""
+        self.assertTrue(self.unavailability.user_can_edit(self.user))
+
+    def test_user_can_edit_non_owner(self):
+        """Test that non-owners cannot edit unavailability entries"""
+        other_user = User.objects.create_user(username='otheruser', password='pass123')
+        self.assertFalse(self.unavailability.user_can_edit(other_user))
 
 
 class UnavailabilityFormTest(TestCase):
@@ -495,6 +503,27 @@ class GroupModelTest(TestCase):
         self.group.members.remove(self.user2)
         self.assertFalse(self.group.is_member(self.user2))
 
+    def test_user_can_edit_owner(self):
+        """Test that the owner can edit the group"""
+        self.assertTrue(self.group.user_can_edit(self.user1))
+
+    def test_user_can_edit_non_owner(self):
+        """Test that non-owners cannot edit the group"""
+        self.assertFalse(self.group.user_can_edit(self.user2))
+
+    def test_user_can_view_owner(self):
+        """Test that the owner can view the group"""
+        self.assertTrue(self.group.user_can_view(self.user1))
+
+    def test_user_can_view_member(self):
+        """Test that members can view the group"""
+        self.group.members.add(self.user2)
+        self.assertTrue(self.group.user_can_view(self.user2))
+
+    def test_user_can_view_non_member(self):
+        """Test that non-members cannot view the group"""
+        self.assertFalse(self.group.user_can_view(self.user2))
+
 
 class GroupUnavailabilityModelTest(TestCase):
     """Tests for the GroupUnavailability model"""
@@ -533,6 +562,26 @@ class GroupUnavailabilityModelTest(TestCase):
         self.assertTrue(hasattr(self.group_unavail, 'start_time'))
         self.assertTrue(hasattr(self.group_unavail, 'end_time'))
         self.assertTrue(hasattr(self.group_unavail, 'description'))
+
+    def test_user_can_edit_creator(self):
+        """Test that the creator can edit their own group unavailability entry"""
+        self.assertTrue(self.group_unavail.user_can_edit(self.user))
+
+    def test_user_can_edit_non_creator(self):
+        """Test that non-creators cannot edit group unavailability entries"""
+        other_user = User.objects.create_user(username='otheruser', password='pass123')
+        self.assertFalse(self.group_unavail.user_can_edit(other_user))
+
+    def test_user_can_view_group_member(self):
+        """Test that group members can view group unavailability entries"""
+        member = User.objects.create_user(username='member', password='pass123')
+        self.group.members.add(member)
+        self.assertTrue(self.group_unavail.user_can_view(member))
+
+    def test_user_can_view_non_member(self):
+        """Test that non-members cannot view group unavailability entries"""
+        non_member = User.objects.create_user(username='nonmember', password='pass123')
+        self.assertFalse(self.group_unavail.user_can_view(non_member))
 
 
 class GroupCreateFormTest(TestCase):
@@ -784,11 +833,12 @@ class GroupViewsTest(TestCase):
         self.client.login(username='user2', password='pass123')
         user3 = User.objects.create_user(username='user3', password='pass123')
         post_data = {'username': 'user3'}
-        response = self.client.post(
+        # Attempt to add member without being owner
+        self.client.post(
             reverse('group_add_member', args=[self.group.id]),
             post_data
         )
-        # Should redirect without adding
+        # Should not add member (permission denied)
         self.assertFalse(self.group.is_member(user3))
 
     def test_group_remove_member_owner_only(self):
@@ -812,7 +862,7 @@ class GroupViewsTest(TestCase):
         """Test that non-owners cannot delete group"""
         self.group.members.add(self.user2)
         self.client.login(username='user2', password='pass123')
-        response = self.client.post(reverse('group_delete', args=[self.group.id]))
+        _response = self.client.post(reverse('group_delete', args=[self.group.id]))
         # Group should still exist
         self.assertTrue(Group.objects.filter(id=self.group.id).exists())
 

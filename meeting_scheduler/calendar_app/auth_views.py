@@ -16,7 +16,7 @@ import logging
 from django.contrib import messages
 from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required
-from django.db import DatabaseError, IntegrityError
+from django.db import DatabaseError, IntegrityError, transaction
 from django.shortcuts import render, redirect
 from django.http import HttpResponseServerError
 from .auth_forms import UserRegistrationForm, CustomAuthenticationForm, UserProfileForm
@@ -45,8 +45,10 @@ def register_view(request):
         form = UserRegistrationForm(request.POST)
         if form.is_valid():
             try:
-                user = form.save()
-                login(request, user)
+                # Use atomic transaction to ensure user creation and login are atomic
+                with transaction.atomic():
+                    user = form.save()
+                    login(request, user)
                 messages.success(
                     request,
                     f'Welcome {user.username}! Your account has been created successfully.'

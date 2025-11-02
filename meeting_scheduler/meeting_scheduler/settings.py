@@ -14,8 +14,9 @@ Last Updated: 2025-01-11
 """
 
 import os
-import dj_database_url
 from pathlib import Path
+
+import dj_database_url
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -203,6 +204,16 @@ LOGGING = {
         'django.security': {
             'handlers': ['console', 'file'],
             'level': 'WARNING',
+            'propagate': False,
+        },
+        'calendar_app.auth_views': {
+            'handlers': ['console', 'file'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'calendar_app.group_views': {
+            'handlers': ['console', 'file'],
+            'level': 'INFO',
             'propagate': False,
         },
     },

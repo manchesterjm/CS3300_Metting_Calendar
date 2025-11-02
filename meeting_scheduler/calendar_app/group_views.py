@@ -23,7 +23,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.core.exceptions import PermissionDenied
-from django.db import DatabaseError, IntegrityError
+from django.db import DatabaseError, IntegrityError, transaction
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import HttpResponseServerError
 from .forms import (
@@ -83,13 +83,15 @@ def group_create_view(request):
         form = GroupCreateForm(request.POST)
         if form.is_valid():
             try:
-                # Create group but don't save yet
-                group = form.save(commit=False)
-                group.created_by = request.user
-                group.save()
+                # Use atomic transaction to ensure group creation and membership are atomic
+                with transaction.atomic():
+                    # Create group but don't save yet
+                    group = form.save(commit=False)
+                    group.created_by = request.user
+                    group.save()
 
-                # Add creator as first member
-                group.members.add(request.user)
+                    # Add creator as first member
+                    group.members.add(request.user)
 
                 logger.info('User %s created group %s: %s', request.user.username, group.id, group.name)
                 messages.success(request, f'Group "{group.name}" created successfully!')
