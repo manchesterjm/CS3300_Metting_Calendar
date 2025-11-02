@@ -190,26 +190,31 @@ def group_calendar_view(request, group_id):
     if request.method == 'POST' and 'show_free_times' in request.POST:
         # Get the date from POST data
         selected_date_str = request.POST.get('date')
-        try:
-            selected_date = datetime.datetime.strptime(selected_date_str, '%Y-%m-%d').date()
 
-            # Get ALL group members (both owner and members)
-            group_members = list(group.members.all())
-            if group.created_by not in group_members:
-                group_members.append(group.created_by)
+        # Validate that date is provided
+        if not selected_date_str:
+            messages.error(request, 'Date is required.')
+        else:
+            try:
+                selected_date = datetime.datetime.strptime(selected_date_str, '%Y-%m-%d').date()
 
-            # Get personal unavailability for ALL group members on this date
-            unavail_list = Unavailability.objects.filter(
-                user__in=group_members,
-                date=selected_date
-            ).select_related('user')
+                # Get ALL group members (both owner and members)
+                group_members = list(group.members.all())
+                if group.created_by not in group_members:
+                    group_members.append(group.created_by)
 
-            # Calculate free time slots using utility function
-            free_times = calculate_free_time_slots(selected_date, unavail_list)
+                # Get personal unavailability for ALL group members on this date
+                unavail_list = Unavailability.objects.filter(
+                    user__in=group_members,
+                    date=selected_date
+                ).select_related('user')
 
-        except (ValueError, TypeError):
-            # If date parsing fails, show error
-            messages.error(request, 'Please select a valid date.')
+                # Calculate free time slots using utility function
+                free_times = calculate_free_time_slots(selected_date, unavail_list)
+
+            except (ValueError, TypeError):
+                # If date parsing fails, show error with format hint
+                messages.error(request, 'Invalid date format. Please use YYYY-MM-DD.')
 
     return render(request, 'calendar_app/group_calendar.html', {
         'free_times': free_times,

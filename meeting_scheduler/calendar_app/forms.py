@@ -22,7 +22,37 @@ from django.contrib.auth.models import User
 from .models import Unavailability, Group, GroupUnavailability
 
 
-class UnavailabilityForm(forms.ModelForm):
+class BaseDescriptionForm(forms.Form):
+    """
+    Base form class for forms that include a description field.
+
+    Provides common validation logic for description fields to avoid code duplication
+    between UnavailabilityForm and GroupUnavailabilityForm.
+    """
+
+    def clean_description(self):
+        """
+        Validate the description field.
+
+        Ensures description is not too long and doesn't contain dangerous characters.
+
+        Returns:
+            str: The cleaned and stripped description.
+
+        Raises:
+            ValidationError: If description exceeds 200 characters or contains invalid data.
+        """
+        description = self.cleaned_data.get('description', '')
+        if description:
+            # Strip whitespace
+            description = description.strip()
+            # Validate length (redundant with maxlength, but server-side is critical)
+            if len(description) > 200:
+                raise forms.ValidationError('Description must be 200 characters or less.')
+        return description
+
+
+class UnavailabilityForm(BaseDescriptionForm, forms.ModelForm):  # pylint: disable=too-many-ancestors
     """
     Form for creating and displaying unavailability entries.
 
@@ -125,27 +155,6 @@ class UnavailabilityForm(forms.ModelForm):
 
         return cleaned_data
 
-    def clean_description(self):
-        """
-        Validate the description field.
-
-        Ensures description is not too long and doesn't contain dangerous characters.
-
-        Returns:
-            str: The cleaned and stripped description.
-
-        Raises:
-            ValidationError: If description exceeds 200 characters or contains invalid data.
-        """
-        description = self.cleaned_data.get('description', '')
-        if description:
-            # Strip whitespace
-            description = description.strip()
-            # Validate length (redundant with maxlength, but server-side is critical)
-            if len(description) > 200:
-                raise forms.ValidationError('Description must be 200 characters or less.')
-        return description
-
 
 class DeleteSelectedForm(forms.Form):
     """
@@ -237,7 +246,7 @@ class AddMemberForm(forms.Form):
         return username
 
 
-class GroupUnavailabilityForm(forms.ModelForm):
+class GroupUnavailabilityForm(BaseDescriptionForm, forms.ModelForm):  # pylint: disable=too-many-ancestors
     """
     Form for creating group unavailability entries.
 
@@ -309,27 +318,6 @@ class GroupUnavailabilityForm(forms.ModelForm):
                 self.add_error('end_time', "End time must be after start time.")
 
         return cleaned_data
-
-    def clean_description(self):
-        """
-        Validate the description field.
-
-        Ensures description is not too long and doesn't contain dangerous characters.
-
-        Returns:
-            str: The cleaned and stripped description.
-
-        Raises:
-            ValidationError: If description exceeds 200 characters or contains invalid data.
-        """
-        description = self.cleaned_data.get('description', '')
-        if description:
-            # Strip whitespace
-            description = description.strip()
-            # Validate length (redundant with maxlength, but server-side is critical)
-            if len(description) > 200:
-                raise forms.ValidationError('Description must be 200 characters or less.')
-        return description
 
 
 class GroupDeleteSelectedForm(forms.Form):

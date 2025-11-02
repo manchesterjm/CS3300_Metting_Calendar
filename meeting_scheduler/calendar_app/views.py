@@ -100,20 +100,26 @@ def calendar_view(request):
             # For showing free times in personal calendar, check only current user's unavailability
             # (Group calendars show all members - see group_calendar_view in group_views.py)
             selected_date_str = request.POST.get('date')
-            try:
-                selected_date = datetime.datetime.strptime(selected_date_str, '%Y-%m-%d').date()
-                # Check only current user's unavailability for personal calendar privacy
-                unavail_list = Unavailability.objects.filter(date=selected_date, user=request.user)
 
-                # Calculate free time slots using utility function
-                free_times = calculate_free_time_slots(selected_date, unavail_list)
-
-                # Recreate form with the selected date for display
-                form = UnavailabilityForm(initial={'date': selected_date})
-            except (ValueError, TypeError):
-                # If date parsing fails, show error
-                messages.error(request, 'Please select a valid date.')
+            # Validate that date is provided
+            if not selected_date_str:
+                messages.error(request, 'Date is required.')
                 form = UnavailabilityForm()
+            else:
+                try:
+                    selected_date = datetime.datetime.strptime(selected_date_str, '%Y-%m-%d').date()
+                    # Check only current user's unavailability for personal calendar privacy
+                    unavail_list = Unavailability.objects.filter(date=selected_date, user=request.user)
+
+                    # Calculate free time slots using utility function
+                    free_times = calculate_free_time_slots(selected_date, unavail_list)
+
+                    # Recreate form with the selected date for display
+                    form = UnavailabilityForm(initial={'date': selected_date})
+                except (ValueError, TypeError):
+                    # If date parsing fails, show error with format hint
+                    messages.error(request, 'Invalid date format. Please use YYYY-MM-DD.')
+                    form = UnavailabilityForm()
 
             form_delete = DeleteSelectedForm()  # Initialize an empty deletion form for display
 

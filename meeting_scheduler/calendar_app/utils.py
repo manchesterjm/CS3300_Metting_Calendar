@@ -16,6 +16,7 @@ Version: 2.1
 """
 from datetime import datetime, timedelta
 import secrets
+from django.utils import timezone
 
 
 def calculate_meeting_duration(start_time, end_time):
@@ -185,6 +186,8 @@ def calculate_free_time_slots(selected_date, unavail_list):
     Generates all possible 30-minute slots between 8:00 and 20:00,
     then removes slots that conflict with unavailability entries.
 
+    Uses timezone-aware datetime objects for correct timezone handling.
+
     Args:
         selected_date: Date to calculate free times for (datetime.date object)
         unavail_list: QuerySet or list of Unavailability objects for that date
@@ -193,8 +196,13 @@ def calculate_free_time_slots(selected_date, unavail_list):
         list: List of free time slots as strings in "HH:MM" format
     """
     # Generate all possible 30-minute slots from 8:00 to 20:00
-    start_dt = datetime.combine(selected_date, datetime.min.time().replace(hour=8))
-    end_dt = datetime.combine(selected_date, datetime.min.time().replace(hour=20))
+    # Use timezone-aware datetime objects
+    start_dt = timezone.make_aware(
+        datetime.combine(selected_date, datetime.min.time().replace(hour=8))
+    )
+    end_dt = timezone.make_aware(
+        datetime.combine(selected_date, datetime.min.time().replace(hour=20))
+    )
     all_slots = []
     while start_dt < end_dt:
         all_slots.append(start_dt.time())
@@ -203,8 +211,13 @@ def calculate_free_time_slots(selected_date, unavail_list):
     # Mark taken slots based on unavailability entries
     taken_slots = set()
     for unavail in unavail_list:
-        current_slot = datetime.combine(selected_date, unavail.start_time)
-        unavail_end = datetime.combine(selected_date, unavail.end_time)
+        # Use timezone-aware datetimes for unavailability period
+        current_slot = timezone.make_aware(
+            datetime.combine(selected_date, unavail.start_time)
+        )
+        unavail_end = timezone.make_aware(
+            datetime.combine(selected_date, unavail.end_time)
+        )
         while current_slot < unavail_end:
             taken_slots.add(current_slot.time())
             current_slot += timedelta(minutes=30)
