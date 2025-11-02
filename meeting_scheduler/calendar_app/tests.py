@@ -1,10 +1,11 @@
 """
 Test suite for the calendar_app
-Includes unit tests for models, forms, and views
+Includes unit tests for models, forms, and views with authentication support
 """
 import datetime
 from django.test import TestCase, Client
 from django.urls import reverse
+from django.contrib.auth.models import User
 from .models import Unavailability
 from .forms import UnavailabilityForm, DeleteSelectedForm
 
@@ -14,7 +15,12 @@ class UnavailabilityModelTest(TestCase):
 
     def setUp(self):
         """Set up test data"""
+        self.user = User.objects.create_user(
+            username='testuser',
+            password='testpass123'
+        )
         self.unavailability = Unavailability.objects.create(
+            user=self.user,
             date=datetime.date(2025, 4, 15),
             start_time=datetime.time(9, 0),
             end_time=datetime.time(10, 0)
@@ -23,17 +29,19 @@ class UnavailabilityModelTest(TestCase):
     def test_unavailability_creation(self):
         """Test that unavailability objects are created correctly"""
         self.assertIsNotNone(self.unavailability)
+        self.assertEqual(self.unavailability.user, self.user)
         self.assertEqual(self.unavailability.date, datetime.date(2025, 4, 15))
         self.assertEqual(self.unavailability.start_time, datetime.time(9, 0))
         self.assertEqual(self.unavailability.end_time, datetime.time(10, 0))
 
     def test_unavailability_str(self):
         """Test the string representation of unavailability"""
-        expected = "2025-04-15 from 09:00:00 to 10:00:00"
+        expected = "testuser: 2025-04-15 from 09:00:00 to 10:00:00"
         self.assertEqual(str(self.unavailability), expected)
 
     def test_unavailability_fields(self):
         """Test that all required fields exist"""
+        self.assertTrue(hasattr(self.unavailability, 'user'))
         self.assertTrue(hasattr(self.unavailability, 'date'))
         self.assertTrue(hasattr(self.unavailability, 'start_time'))
         self.assertTrue(hasattr(self.unavailability, 'end_time'))
@@ -119,7 +127,15 @@ class CalendarViewTest(TestCase):
         """Set up test client and data"""
         self.client = Client()
         self.url = reverse('calendar')
+        # Create test user and login
+        self.user = User.objects.create_user(
+            username='testuser',
+            password='testpass123'
+        )
+        self.client.login(username='testuser', password='testpass123')
+        # Create test unavailability entry
         Unavailability.objects.create(
+            user=self.user,
             date=datetime.date(2025, 4, 15),
             start_time=datetime.time(9, 0),
             end_time=datetime.time(10, 0)
@@ -168,6 +184,7 @@ class CalendarViewTest(TestCase):
         # Create more entries
         for i in range(6):
             Unavailability.objects.create(
+                user=self.user,
                 date=datetime.date(2025, 5, i + 1),
                 start_time=datetime.time(9, 0),
                 end_time=datetime.time(10, 0)
@@ -183,6 +200,7 @@ class CalendarViewTest(TestCase):
     def test_delete_selected(self):
         """Test deleting selected entries"""
         unavail = Unavailability.objects.create(
+            user=self.user,
             date=datetime.date(2025, 5, 10),
             start_time=datetime.time(14, 0),
             end_time=datetime.time(15, 0)
@@ -201,6 +219,7 @@ class CalendarViewTest(TestCase):
         Unavailability.objects.all().delete()
         # Create unavailability from 9:00 to 10:00
         Unavailability.objects.create(
+            user=self.user,
             date=datetime.date(2025, 5, 1),
             start_time=datetime.time(9, 0),
             end_time=datetime.time(10, 0)
@@ -271,6 +290,7 @@ class CalendarViewTest(TestCase):
         # Create exactly 7 entries
         for i in range(7):
             Unavailability.objects.create(
+                user=self.user,
                 date=datetime.date(2025, 5, i + 1),
                 start_time=datetime.time(9, 0),
                 end_time=datetime.time(10, 0)
@@ -286,6 +306,7 @@ class CalendarViewTest(TestCase):
         Unavailability.objects.all().delete()
         # Create unavailability from 9:00 to 9:30 exactly
         Unavailability.objects.create(
+            user=self.user,
             date=datetime.date(2025, 5, 1),
             start_time=datetime.time(9, 0),
             end_time=datetime.time(9, 30)
@@ -304,3 +325,113 @@ class CalendarViewTest(TestCase):
         self.assertIn('09:30', free_times)
         # 8:30 should be free (before start)
         self.assertIn('08:30', free_times)
+
+
+class AuthenticationTest(TestCase):
+    """Tests for authentication functionality"""
+
+    def setUp(self):
+        """Set up test client"""
+        self.client = Client()
+
+    def test_login_required_for_calendar(self):
+        """Test that calendar view requires login"""
+        response = self.client.get(reverse('calendar'))
+        # Should redirect to login page
+        self.assertEqual(response.status_code, 302)
+        self.assertIn('/login/', response.url)
+
+    def test_user_registration(self):
+        """Test user registration"""
+        post_data = {
+            'username': 'newuser',
+            'email': 'newuser@example.com',
+            'password1': 'TestPass123!',
+            'password2': 'TestPass123!'
+        }
+        response = self.client.post(reverse('register'), post_data)
+        # Should redirect to calendar after successful registration
+        self.assertEqual(response.status_code, 302)
+        # User should be created
+        self.assertTrue(User.objects.filter(username='newuser').exists())
+
+    def test_user_login(self):
+        """Test user login"""
+        # Create user
+        User.objects.create_user(username='testuser', password='testpass123')
+        # Login
+        post_data = {
+            'username': 'testuser',
+            'password': 'testpass123'
+        }
+        response = self.client.post(reverse('login'), post_data)
+        # Should redirect after successful login
+        self.assertEqual(response.status_code, 302)
+        # User should be authenticated
+        self.assertTrue(response.wsgi_request.user.is_authenticated)
+
+    def test_user_logout(self):
+        """Test user logout"""
+        # Create and login user
+        User.objects.create_user(username='testuser', password='testpass123')
+        self.client.login(username='testuser', password='testpass123')
+        # Logout
+        response = self.client.post(reverse('logout'))
+        # Should redirect to login
+        self.assertEqual(response.status_code, 302)
+
+    def test_user_account_page(self):
+        """Test user account page access"""
+        User.objects.create_user(
+            username='testuser',
+            email='test@example.com',
+            password='testpass123'
+        )
+        self.client.login(username='testuser', password='testpass123')
+        response = self.client.get(reverse('account'))
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'calendar_app/account.html')
+        self.assertContains(response, 'testuser')
+
+    def test_user_data_isolation(self):
+        """Test that users only see their own data"""
+        # Create two users
+        user1 = User.objects.create_user(username='user1', password='pass123')
+        user2 = User.objects.create_user(username='user2', password='pass123')
+
+        # User1 creates an entry
+        Unavailability.objects.create(
+            user=user1,
+            date=datetime.date(2025, 5, 1),
+            start_time=datetime.time(9, 0),
+            end_time=datetime.time(10, 0)
+        )
+
+        # User2 creates an entry
+        Unavailability.objects.create(
+            user=user2,
+            date=datetime.date(2025, 5, 2),
+            start_time=datetime.time(11, 0),
+            end_time=datetime.time(12, 0)
+        )
+
+        # Login as user1
+        self.client.login(username='user1', password='pass123')
+
+        # Request last 5 entries - should only see user1's entry
+        response = self.client.post(reverse('calendar'), {'show_last_five': 'Show'})
+        choices = response.context['form_delete'].fields['entry_ids'].choices
+
+        # Should only have 1 entry (user1's)
+        self.assertEqual(len(choices), 1)
+
+        # Logout and login as user2
+        self.client.logout()
+        self.client.login(username='user2', password='pass123')
+
+        # Request last 5 entries - should only see user2's entry
+        response = self.client.post(reverse('calendar'), {'show_last_five': 'Show'})
+        choices = response.context['form_delete'].fields['entry_ids'].choices
+
+        # Should only have 1 entry (user2's)
+        self.assertEqual(len(choices), 1)

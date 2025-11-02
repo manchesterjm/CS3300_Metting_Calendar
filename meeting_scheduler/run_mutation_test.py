@@ -133,16 +133,16 @@ class MutationTester:
         # Mutation 5: Change last five query limit
         self.test_mutation(
             'calendar_app/views.py',
-            "last_five = Unavailability.objects.order_by('-id')[:5]",
-            "last_five = Unavailability.objects.order_by('-id')[:3]",
+            "last_five = Unavailability.objects.filter(user=request.user).order_by('-id')[:5]",
+            "last_five = Unavailability.objects.filter(user=request.user).order_by('-id')[:3]",
             'Mutation 5: Change query limit from 5 to 3'
         )
 
         # Mutation 6: Change model string format
         self.test_mutation(
             'calendar_app/models.py',
-            'return f"{self.date} from {self.start_time} to {self.end_time}"',
-            'return f"{self.date}"',
+            'return f"{self.user.username}: {self.date} from {self.start_time} to {self.end_time}"',
+            'return f"{self.user.username}: {self.date}"',
             'Mutation 6: Remove times from model string representation'
         )
 

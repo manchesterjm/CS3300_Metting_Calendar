@@ -1,10 +1,11 @@
 """
 Fuzz testing using Hypothesis
-Tests the application with randomly generated inputs
+Tests the application with randomly generated inputs with authentication support
 """
 import datetime
-from django.test import TestCase, Client
+from django.test import Client
 from django.urls import reverse
+from django.contrib.auth.models import User
 from hypothesis import given, strategies as st, settings, HealthCheck
 from hypothesis.extra.django import TestCase as HypothesisTestCase
 from .models import Unavailability
@@ -13,6 +14,17 @@ from .forms import UnavailabilityForm, DeleteSelectedForm
 
 class FuzzUnavailabilityModelTest(HypothesisTestCase):
     """Fuzz tests for the Unavailability model"""
+
+    def setUp(self):
+        """Set up test user for all fuzz tests"""
+        # Use get_or_create to avoid duplicate user errors
+        self.user, _ = User.objects.get_or_create(
+            username='fuzzuser',
+            defaults={'password': 'fuzzpass123'}
+        )
+        if not self.user.has_usable_password():
+            self.user.set_password('fuzzpass123')
+            self.user.save()
 
     @given(
         year=st.integers(min_value=2000, max_value=2099),
@@ -30,12 +42,14 @@ class FuzzUnavailabilityModelTest(HypothesisTestCase):
         """Test model handles various date/time combinations"""
         try:
             unavail = Unavailability.objects.create(
+                user=self.user,
                 date=datetime.date(year, month, day),
                 start_time=datetime.time(start_hour, start_minute),
                 end_time=datetime.time(end_hour, end_minute)
             )
             self.assertIsNotNone(unavail)
             self.assertIsNotNone(unavail.id)
+            self.assertEqual(unavail.user, self.user)
             # Cleanup
             unavail.delete()
         except Exception as e:
@@ -51,12 +65,14 @@ class FuzzUnavailabilityModelTest(HypothesisTestCase):
     def test_model_str_representation(self, date, time1, time2):
         """Test string representation with random dates and times"""
         unavail = Unavailability.objects.create(
+            user=self.user,
             date=date,
             start_time=time1,
             end_time=time2
         )
         str_repr = str(unavail)
-        # Should contain the date and both times
+        # Should contain the username and date
+        self.assertIn('fuzzuser', str_repr)
         self.assertIn(str(date), str_repr)
         # Cleanup
         unavail.delete()
@@ -80,10 +96,9 @@ class FuzzUnavailabilityFormTest(HypothesisTestCase):
         }
         form = UnavailabilityForm(data=form_data)
         # Form should handle all valid datetime combinations
-        # Only validate if we're not using default times in submit mode
-        if form.is_valid():
-            self.assertTrue(True)
-        else:
+        # Form may be valid or invalid depending on default values
+        # The test verifies the form doesn't crash with random data
+        if not form.is_valid():
             # Some combinations might fail validation
             # (e.g., default times in submit_unavailability mode)
             self.assertIsNotNone(form.errors)
@@ -117,9 +132,18 @@ class FuzzCalendarViewTest(HypothesisTestCase):
     """Fuzz tests for the calendar view"""
 
     def setUp(self):
-        """Set up test client"""
+        """Set up test client and authenticated user"""
         self.client = Client()
         self.url = reverse('calendar')
+        # Use get_or_create to avoid duplicate user errors
+        self.user, created = User.objects.get_or_create(
+            username='fuzzviewuser',
+            defaults={'password': 'fuzzpass123'}
+        )
+        if created or not self.user.has_usable_password():
+            self.user.set_password('fuzzpass123')
+            self.user.save()
+        self.client.login(username='fuzzviewuser', password='fuzzpass123')
 
     @given(
         year=st.integers(min_value=2000, max_value=2099),
@@ -153,11 +177,15 @@ class FuzzCalendarViewTest(HypothesisTestCase):
     @settings(max_examples=20, suppress_health_check=[HealthCheck.too_slow])
     def test_show_free_times_fuzz(self, num_entries, date):
         """Test free times calculation with random number of entries"""
+        # Ensure user is logged in (hypothesis runs test multiple times)
+        self.client.force_login(self.user)
+
         # Create random unavailability entries for the date
-        Unavailability.objects.all().delete()
+        Unavailability.objects.filter(user=self.user).delete()
         for i in range(num_entries):
             hour = (8 + i) % 12 + 8  # Between 8 and 20
             Unavailability.objects.create(
+                user=self.user,
                 date=date,
                 start_time=datetime.time(hour, 0),
                 end_time=datetime.time(hour, 30)
@@ -180,7 +208,7 @@ class FuzzCalendarViewTest(HypothesisTestCase):
             self.fail(f"Free times calculation failed: {e}")
         finally:
             # Cleanup
-            Unavailability.objects.all().delete()
+            Unavailability.objects.filter(user=self.user).delete()
 
 
 class FuzzDeleteSelectedFormTest(HypothesisTestCase):
@@ -216,6 +244,19 @@ class FuzzDeleteSelectedFormTest(HypothesisTestCase):
 class FuzzEdgeCasesTest(HypothesisTestCase):
     """Fuzz tests for edge cases"""
 
+    def setUp(self):
+        """Set up test client and authenticated user"""
+        self.client = Client()
+        # Use get_or_create to avoid duplicate user errors
+        self.user, created = User.objects.get_or_create(
+            username='fuzzedgeuser',
+            defaults={'password': 'fuzzpass123'}
+        )
+        if created or not self.user.has_usable_password():
+            self.user.set_password('fuzzpass123')
+            self.user.save()
+        self.client.login(username='fuzzedgeuser', password='fuzzpass123')
+
     @given(
         time_str=st.text(alphabet=st.characters(whitelist_categories=('Nd', 'Pc')),
                         min_size=0, max_size=10)
@@ -230,8 +271,7 @@ class FuzzEdgeCasesTest(HypothesisTestCase):
             'submit_unavailability': 'Submit'
         }
         try:
-            client = Client()
-            response = client.post(reverse('calendar'), post_data)
+            response = self.client.post(reverse('calendar'), post_data)
             # Should not crash - either accept or show form errors
             self.assertIn(response.status_code, [200, 302, 400])
         except Exception:
@@ -258,8 +298,7 @@ class FuzzEdgeCasesTest(HypothesisTestCase):
             'submit_unavailability': 'Submit'
         }
         try:
-            client = Client()
-            response = client.post(reverse('calendar'), post_data)
+            response = self.client.post(reverse('calendar'), post_data)
             # Should handle gracefully
             self.assertIn(response.status_code, [200, 302, 400])
         except Exception:

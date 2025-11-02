@@ -7,11 +7,13 @@ entry display, and deletion functionality.
 """
 import datetime
 from django.contrib import messages
+from django.contrib.auth.decorators import login_required
 from django.shortcuts import render, redirect
 from .forms import UnavailabilityForm, DeleteSelectedForm
 from .models import Unavailability
 
 
+@login_required
 def calendar_view(request):
     """
     Main view for the calendar application handling all form submissions.
@@ -43,8 +45,10 @@ def calendar_view(request):
         if 'submit_unavailability' in request.POST:
             form = UnavailabilityForm(request.POST, submit_type='submit_unavailability')
             if form.is_valid():
-                # biggest pain was this part, getting an entry to save properly into the DB
-                new_record = form.save()
+                # Save but don't commit yet - need to associate with user
+                new_record = form.save(commit=False)
+                new_record.user = request.user
+                new_record.save()
                 messages.success(
                 request,
                 f'New Record Made: <br>{new_record.date} from '
@@ -64,7 +68,7 @@ def calendar_view(request):
             if form.is_valid():
                 data = form.cleaned_data
                 selected_date = data['date']
-                unavail_list = Unavailability.objects.filter(date=selected_date)
+                unavail_list = Unavailability.objects.filter(user=request.user, date=selected_date)
 
                 start_dt = datetime.datetime.combine(selected_date, datetime.time(8, 0))
                 end_dt = datetime.datetime.combine(selected_date, datetime.time(20, 0))
@@ -91,7 +95,7 @@ def calendar_view(request):
         # show last five entries in the database
         elif 'show_last_five' in request.POST:
             form = UnavailabilityForm()
-            last_five = Unavailability.objects.order_by('-id')[:5]
+            last_five = Unavailability.objects.filter(user=request.user).order_by('-id')[:5]
             choices = []
             for entry in last_five:  # start the print out here
                 label = f"{entry.date} from {entry.start_time} to {entry.end_time}"
@@ -104,7 +108,7 @@ def calendar_view(request):
         elif 'delete_selected' in request.POST:
             form = UnavailabilityForm()  # Reinitialize the main form
             # Repopulate choices from the last five entries
-            last_five = Unavailability.objects.order_by('-id')[:5]
+            last_five = Unavailability.objects.filter(user=request.user).order_by('-id')[:5]
             choices = []  # list/array of the entries we selected
             for entry in last_five:
                 label = f"{entry.date} from {entry.start_time} to {entry.end_time}"
@@ -120,12 +124,13 @@ def calendar_view(request):
                 print("Delete form cleaned data:", entry_ids)
                 if entry_ids:
                     entry_ids = [int(e_id) for e_id in entry_ids]
+                    # Only delete entries belonging to the current user
                     count_before = Unavailability.objects.filter(
-                        id__in=entry_ids).count()
+                        user=request.user, id__in=entry_ids).count()
                     print("Count before deletion:", count_before)
-                    Unavailability.objects.filter(id__in=entry_ids).delete()
+                    Unavailability.objects.filter(user=request.user, id__in=entry_ids).delete()
                     count_after = Unavailability.objects.filter(
-                        id__in=entry_ids).count()
+                        user=request.user, id__in=entry_ids).count()
                     print("Count after deletion:", count_after)
                 else:
                     print("No entries selected for deletion.")  # we didn't select anything

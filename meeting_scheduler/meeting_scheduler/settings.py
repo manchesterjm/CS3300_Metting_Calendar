@@ -195,3 +195,26 @@ CSRF_USE_SESSIONS = False  # Use cookie-based CSRF tokens
 # - Enable HTTPS security settings (commented above)
 # - Use a production database (PostgreSQL, MySQL) instead of SQLite
 # - Configure static file serving (STATIC_ROOT, collectstatic)
+
+# =============================================================================
+# AUTHENTICATION SETTINGS
+# =============================================================================
+# Login and logout redirect URLs
+LOGIN_URL = 'login'  # Redirect to login page when @login_required fails
+LOGIN_REDIRECT_URL = 'calendar'  # Redirect after successful login
+LOGOUT_REDIRECT_URL = 'login'  # Redirect after logout
+
+# =============================================================================
+# EMAIL SETTINGS
+# =============================================================================
+# For development: emails are displayed in console instead of being sent
+# For production: configure SMTP settings
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+# Uncomment and configure for production email sending:
+# EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+# EMAIL_HOST = 'smtp.gmail.com'
+# EMAIL_PORT = 587
+# EMAIL_USE_TLS = True
+# EMAIL_HOST_USER = os.environ.get('EMAIL_USER')
+# EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_PASS')
+DEFAULT_FROM_EMAIL = 'noreply@meetingcalendar.local'

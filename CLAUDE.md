@@ -138,7 +138,7 @@ python manage.py test calendar_app.tests --verbosity=2
 **Action Required:**
 - If ANY test fails, fix the error immediately
 - Re-run tests after each fix
-- Continue until ALL 21 tests pass
+- Continue until ALL 27 tests pass
 
 #### Step 3: Run Fuzz Tests
 ```bash
@@ -155,7 +155,7 @@ python manage.py test calendar_app.test_fuzz --verbosity=2
 python manage.py test calendar_app --verbosity=1
 ```
 
-**Expected Result:** All 30 tests (21 unit + 9 fuzz) must pass
+**Expected Result:** All 36 tests (27 unit + 9 fuzz) must pass
 
 #### Step 5: Run Mutation Tests
 ```bash
@@ -175,7 +175,25 @@ coverage report
 
 **Expected Result:**
 - Critical modules (models.py, forms.py, views.py) must maintain 93%+ coverage
-- Overall coverage should be 70%+
+- Overall coverage should be 80%+
+
+#### Step 7: Run Security Scans
+```bash
+python run_security_scans.py
+```
+
+**Action Required:**
+- Fix ALL security vulnerabilities before committing code
+- Review and address all Bandit findings
+- Update dependencies if Safety/pip-audit reports vulnerabilities
+- Address Semgrep security pattern warnings
+- Re-run security scans after fixes to verify all issues resolved
+
+**Expected Result:**
+- Bandit: 0 security issues
+- Safety: 0 known vulnerabilities in dependencies
+- pip-audit: 0 known vulnerabilities
+- Semgrep: 0 security findings
 
 ### Quick Test Commands
 
@@ -183,19 +201,20 @@ coverage report
 ```bash
 python run_all_tests.py
 ```
-This script automatically runs all 6 steps in order and stops at the first failure.
+This script automatically runs all 7 steps in order and stops at the first failure.
 
 **Run all tests in one command:**
 ```bash
 python manage.py test calendar_app && python run_mutation_test.py
 ```
 
-**Full quality check (Pylint + All Tests + Coverage):**
+**Full quality check (Pylint + All Tests + Coverage + Security):**
 ```bash
 pylint calendar_app/*.py --disable=C0114,C0115,C0116,R0903,R0914,R0912,R0915,E1101 --max-line-length=120 && \
 coverage run --source=calendar_app manage.py test calendar_app && \
 coverage report && \
-python run_mutation_test.py
+python run_mutation_test.py && \
+python run_security_scans.py
 ```
 
 **Generate HTML coverage report:**
@@ -208,11 +227,12 @@ coverage html  # Report in htmlcov/index.html
 **All code changes MUST meet these criteria before being considered complete:**
 
 ✅ Pylint score: 9.0+ (or all issues fixed)
-✅ Unit tests: 21/21 passing
+✅ Unit tests: 27/27 passing
 ✅ Fuzz tests: 9/9 passing
-✅ Total tests: 30/30 passing
+✅ Total tests: 36/36 passing
 ✅ Mutation score: 100%
 ✅ Code coverage: 93%+ on critical modules
+✅ Security scans: 0 vulnerabilities (Bandit, Safety, pip-audit, Semgrep)
 ✅ No test failures or errors
 
 **If any test fails:**
@@ -223,12 +243,72 @@ coverage html  # Report in htmlcov/index.html
 5. Then continue to next test type
 
 ### Current Test Statistics
-- Unit tests: 21 tests covering models, forms, and views
+- Unit tests: 27 tests covering models, forms, views, and authentication
 - Fuzz tests: 9 tests with ~350 generated test cases
-- Total test cases: 30 tests + 350 fuzz-generated cases
+- Total test cases: 36 tests + 350 fuzz-generated cases
 - Code coverage: 93%+ on critical modules (models, forms, views), 70% overall
 - Mutation score: 100% (8/8 mutations killed)
 - Test execution time: ~1-2 seconds
+
+### New Feature Testing Policy
+
+**MANDATORY REQUIREMENT: Every new feature added to this project MUST include comprehensive tests.**
+
+When implementing ANY new feature, the following testing workflow is REQUIRED:
+
+1. **Design tests before or during implementation**
+   - Unit tests for all new models, forms, and views
+   - Fuzz tests for any user input or data processing
+   - Edge case tests for boundary conditions
+   - Integration tests for multi-component features
+
+2. **Run ALL existing tests to ensure no regressions**
+   - All unit tests must pass
+   - All fuzz tests must pass
+   - Pylint score must remain 10.0/10
+   - Mutation score must remain 100%
+
+3. **Add feature-specific tests**
+   - Write unit tests that cover all code paths in the new feature
+   - Add fuzz tests if the feature handles user input
+   - Update mutation tests to cover new mutations
+   - Ensure code coverage remains at 93%+ for critical modules
+
+4. **Iterate until all tests pass**
+   - Fix any test failures immediately
+   - Re-run tests after each fix
+   - Continue until 100% pass rate achieved
+
+5. **Verify code quality standards**
+   - Run Pylint and fix all issues
+   - Maintain 10.0/10 score (or address all findings)
+   - Follow PEP 8 standards
+   - Add comprehensive docstrings
+
+6. **Run security scans**
+   - Execute all security scanners (Bandit, Safety, pip-audit, Semgrep)
+   - Fix all security vulnerabilities immediately
+   - Update dependencies if vulnerabilities found
+   - Ensure 0 security findings before proceeding
+
+7. **Complete testing checklist**
+   - ✅ Pylint: 10.0/10
+   - ✅ Unit tests: All passing
+   - ✅ Fuzz tests: All passing
+   - ✅ Mutation tests: 100% score
+   - ✅ Code coverage: 93%+ on critical modules
+   - ✅ Security scans: 0 vulnerabilities
+   - ✅ No test failures or errors
+
+**NO FEATURE IS CONSIDERED COMPLETE UNTIL ALL TESTS AND SECURITY SCANS PASS.**
+
+This policy ensures:
+- High code quality and reliability
+- No regressions introduced by new features
+- Comprehensive test coverage maintained
+- Consistent code standards across the project
+- Early detection of bugs and security issues
+- Zero-vulnerability codebase maintained
 
 ## Security Practices
 

@@ -1,0 +1,189 @@
+{% extends "calendar_app/base.html" %}
+
+{% block title %}My Account - Meeting Calendar{% endblock %}
+
+{% block extra_style %}
+.account-container {
+    max-width: 800px;
+    margin: 30px auto;
+}
+
+.account-header {
+    background-color: #2c3e50;
+    color: white;
+    padding: 20px;
+    border-radius: 8px 8px 0 0;
+}
+
+.account-header h2 {
+    margin: 0;
+}
+
+.account-info {
+    background-color: #ecf0f1;
+    padding: 20px;
+    border-radius: 0 0 8px 8px;
+    margin-bottom: 30px;
+}
+
+.info-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px 0;
+    border-bottom: 1px solid #bdc3c7;
+}
+
+.info-row:last-child {
+    border-bottom: none;
+}
+
+.info-label {
+    font-weight: bold;
+    color: #34495e;
+}
+
+.info-value {
+    color: #7f8c8d;
+}
+
+.account-form {
+    background-color: #f8f9fa;
+    padding: 30px;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.account-form h3 {
+    color: #2c3e50;
+    margin-bottom: 20px;
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 5px;
+    color: #34495e;
+    font-weight: bold;
+}
+
+.form-input {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #bdc3c7;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.form-input:focus {
+    outline: none;
+    border-color: #1abc9c;
+}
+
+.btn-primary {
+    padding: 12px 30px;
+    background-color: #1abc9c;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    font-size: 16px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.btn-primary:hover {
+    background-color: #16a085;
+}
+
+.btn-secondary {
+    padding: 12px 30px;
+    background-color: #95a5a6;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    font-size: 16px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+    text-decoration: none;
+    display: inline-block;
+    margin-left: 10px;
+}
+
+.btn-secondary:hover {
+    background-color: #7f8c8d;
+}
+
+@media (max-width: 768px) {
+    .account-container {
+        margin: 20px;
+    }
+
+    .info-row {
+        flex-direction: column;
+    }
+
+    .info-label {
+        margin-bottom: 5px;
+    }
+
+    .account-form {
+        padding: 20px;
+    }
+}
+{% endblock %}
+
+{% block content %}
+<div class="account-container">
+    <!-- Account Information -->
+    <div class="account-header">
+        <h2>Account Information</h2>
+    </div>
+    <div class="account-info">
+        <div class="info-row">
+            <span class="info-label">Username:</span>
+            <span class="info-value">{{ user.username }}</span>
+        </div>
+        <div class="info-row">
+            <span class="info-label">Email:</span>
+            <span class="info-value">{{ user.email|default:"Not provided" }}</span>
+        </div>
+        <div class="info-row">
+            <span class="info-label">Account Type:</span>
+            <span class="info-value">
+                {% if user.is_staff %}Administrator{% else %}Regular User{% endif %}
+            </span>
+        </div>
+        <div class="info-row">
+            <span class="info-label">Member Since:</span>
+            <span class="info-value">{{ user.date_joined|date:"F j, Y" }}</span>
+        </div>
+        <div class="info-row">
+            <span class="info-label">Total Unavailability Entries:</span>
+            <span class="info-value">{{ unavailability_count }}</span>
+        </div>
+    </div>
+
+    <!-- Update Profile Form -->
+    <div class="account-form">
+        <h3>Update Profile</h3>
+        <form method="post">
+            {% csrf_token %}
+
+            {% for field in form %}
+                <div class="form-group">
+                    {{ field.label_tag }}
+                    {{ field }}
+                    {% if field.errors %}
+                        {{ field.errors }}
+                    {% endif %}
+                </div>
+            {% endfor %}
+
+            <button type="submit" class="btn-primary">Save Changes</button>
+            <a href="{% url 'calendar' %}" class="btn-secondary">Cancel</a>
+        </form>
+    </div>
+</div>
+{% endblock %}
