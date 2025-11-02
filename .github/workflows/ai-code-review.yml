@@ -45,8 +45,17 @@ jobs:
           OPENAI_API_ENDPOINT: https://api.openai.com/v1
           # Using GPT-4 Turbo for reliable code review capabilities
           MODEL: ${{ secrets.OPENAI_MODEL != '' && secrets.OPENAI_MODEL || 'gpt-4-turbo' }}
+          # Review ALL changed files, not just workflow files
+          LANGUAGE: en-US
+          # Ensure all files are reviewed
+          MAX_FILES: "50"
           PROMPT: |
-            You are a senior Django developer conducting a thorough code review. For EVERY file changed, you MUST provide detailed analysis.
+            You are a senior Django developer conducting a thorough code review.
+
+            CRITICAL REQUIREMENT: You MUST review EVERY SINGLE file that was changed in this PR.
+            Do not skip any files. Do not just review workflow files or configuration files.
+
+            For EACH changed file (Python, HTML, Markdown, etc.), you MUST provide detailed analysis.
 
             For each changed file, explicitly discuss:
             1) **Code Quality**: Evaluate Django best practices, PEP 8 compliance, code organization, and readability
@@ -64,6 +73,6 @@ jobs:
             - Never just say "LGTM" - always provide substantive analysis
             - Be constructive and educational in your feedback
           # Newer models expect 'max_completion_tokens' rather than 'max_tokens'
-          max_completion_tokens: "8000"
+          max_completion_tokens: "16000"
           top_p: "1"
           temperature: "0.7"
