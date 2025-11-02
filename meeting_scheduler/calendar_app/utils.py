@@ -45,3 +45,17 @@ def format_time_slot(time_slot):
         display_hour = 12
 
     return f"{display_hour}:{minute:02d} {period}"
+
+
+def is_business_hours(time_slot):
+    """
+    Check if a time slot is within business hours (8 AM - 8 PM).
+
+    Args:
+        time_slot: Time as string in HH:MM format
+
+    Returns:
+        bool: True if within business hours, False otherwise
+    """
+    hour, minute = map(int, time_slot.split(':'))
+    return 8 <= hour < 20
