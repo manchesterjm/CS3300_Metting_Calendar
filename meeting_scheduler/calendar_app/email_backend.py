@@ -4,6 +4,7 @@ Custom email backend that bypasses SSL certificate verification.
 This is ONLY for development/testing purposes to work around Windows SSL certificate issues.
 DO NOT use in production.
 """
+import smtplib
 import ssl
 from django.conf import settings
 from django.core.mail.backends.smtp import EmailBackend
@@ -64,8 +65,9 @@ class UnsecureEmailBackend(EmailBackend):
                 self.connection.login(self.username, self.password)
 
             return True
-        except Exception:  # pylint: disable=broad-exception-caught
-            # Email backend must catch all exceptions to handle fail_silently
+        except (smtplib.SMTPException, OSError) as e:
+            # Catch SMTP-specific and OS-level network errors
+            # Email backend handles fail_silently for graceful degradation
             if not self.fail_silently:
-                raise
+                raise e
             return False

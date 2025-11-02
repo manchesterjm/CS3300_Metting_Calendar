@@ -22,6 +22,7 @@ from django.contrib.auth.forms import PasswordChangeForm
 from django.db import DatabaseError, IntegrityError, transaction
 from django.shortcuts import render, redirect
 from django.http import HttpResponseServerError, JsonResponse
+from django.views.decorators.http import require_http_methods
 from .auth_forms import UserRegistrationForm, CustomAuthenticationForm, UserProfileForm
 from .utils import generate_password
 
@@ -210,6 +211,7 @@ def change_password_view(request):
     return render(request, 'calendar_app/change_password.html', {'form': form})
 
 
+@require_http_methods(["POST"])
 def generate_password_api(request):  # pylint: disable=unused-argument
     """
     API endpoint to generate a random secure password.
@@ -218,6 +220,7 @@ def generate_password_api(request):  # pylint: disable=unused-argument
     using the CS3080 password generation algorithm.
 
     No authentication required - used for registration and password reset forms.
+    Uses POST method to prevent password leakage through server logs.
 
     Args:
         request: HttpRequest object (required by Django view signature).

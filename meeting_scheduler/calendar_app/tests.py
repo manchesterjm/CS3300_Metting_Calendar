@@ -1390,21 +1390,21 @@ class PasswordGenerationTest(TestCase):
 
     def test_generate_password_api_returns_json(self):
         """Test that the password generation API returns valid JSON"""
-        response = self.client.get(reverse('generate_password_api'))
+        response = self.client.post(reverse('generate_password_api'))
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response['Content-Type'], 'application/json')
 
     def test_generate_password_api_returns_password(self):
         """Test that the API returns a password field"""
-        response = self.client.get(reverse('generate_password_api'))
+        response = self.client.post(reverse('generate_password_api'))
         data = json.loads(response.content)
         self.assertIn('password', data)
         self.assertEqual(len(data['password']), 16)
 
     def test_generate_password_api_no_auth_required(self):
         """Test that password generation API doesn't require authentication"""
-        # Don't login - API should still work for registration page
-        response = self.client.get(reverse('generate_password_api'))
+        # Don't login - API should still work for registration page (uses POST now for security)
+        response = self.client.post(reverse('generate_password_api'))
         self.assertEqual(response.status_code, 200)
 
 

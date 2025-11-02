@@ -178,7 +178,7 @@ async function generatePassword(btn) {
     try {
         const csrftoken = getCookie('csrftoken');
         const response = await fetch("{% url 'generate_password_api' %}", {
-            method: 'GET',
+            method: 'POST',
             headers: {
                 'X-CSRFToken': csrftoken
             }
