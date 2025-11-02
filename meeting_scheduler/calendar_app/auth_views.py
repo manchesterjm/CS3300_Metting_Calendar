@@ -48,14 +48,24 @@ def register_view(request):
                 # Use atomic transaction for database operations only
                 with transaction.atomic():
                     user = form.save()
+
                 # Login after successful transaction (session operations outside transaction)
-                login(request, user)
-                messages.success(
-                    request,
-                    f'Welcome {user.username}! Your account has been created successfully.'
+                # Verify user was saved successfully before logging in
+                if user.id is not None:
+                    login(request, user)
+                    messages.success(
+                        request,
+                        f'Welcome {user.username}! Your account has been created successfully.'
+                    )
+                    logger.info('New user registered: %s', user.username)
+                    return redirect('calendar')
+
+                # User creation failed despite no exception
+                logger.error(
+                    'User creation failed without exception for username: %s',
+                    form.cleaned_data.get('username')
                 )
-                logger.info('New user registered: %s', user.username)
-                return redirect('calendar')
+                messages.error(request, 'Account creation failed. Please try again.')
             except IntegrityError as e:
                 logger.error('Database integrity error during registration: %s', e)
                 messages.error(request, 'Username or email already exists. Please try again.')
