@@ -18,10 +18,14 @@ Version: 2.0
 Security: All views require authentication and verify group membership
 """
 import datetime
+import logging
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
+from django.core.exceptions import PermissionDenied
+from django.db import DatabaseError, IntegrityError
 from django.shortcuts import render, redirect, get_object_or_404
+from django.http import HttpResponseServerError
 from .forms import (
     GroupCreateForm,
     AddMemberForm,
@@ -29,6 +33,9 @@ from .forms import (
     GroupDeleteSelectedForm
 )
 from .models import Group, GroupUnavailability
+
+# Configure logger for group calendar module
+logger = logging.getLogger(__name__)
 
 
 @login_required
@@ -46,8 +53,9 @@ def group_list_view(request):
         HttpResponse: Rendered group list template with user's groups.
     """
     # Get groups where user is a member OR owner
+    # Optimize with prefetch_related to avoid N+1 queries when accessing members
     user_groups = request.user.calendar_groups.all() | request.user.owned_groups.all()
-    user_groups = user_groups.distinct().order_by('name')
+    user_groups = user_groups.distinct().select_related('created_by').prefetch_related('members').order_by('name')
 
     return render(request, 'calendar_app/group_list.html', {
         'groups': user_groups,
@@ -74,16 +82,25 @@ def group_create_view(request):
     if request.method == 'POST':
         form = GroupCreateForm(request.POST)
         if form.is_valid():
-            # Create group but don't save yet
-            group = form.save(commit=False)
-            group.created_by = request.user
-            group.save()
+            try:
+                # Create group but don't save yet
+                group = form.save(commit=False)
+                group.created_by = request.user
+                group.save()
 
-            # Add creator as first member
-            group.members.add(request.user)
+                # Add creator as first member
+                group.members.add(request.user)
 
-            messages.success(request, f'Group "{group.name}" created successfully!')
-            return redirect('group_list')
+                logger.info('User %s created group %s: %s', request.user.username, group.id, group.name)
+                messages.success(request, f'Group "{group.name}" created successfully!')
+                return redirect('group_list')
+            except IntegrityError as e:
+                logger.error('Integrity error creating group: %s', e)
+                messages.error(request, 'A group with this name already exists.')
+            except DatabaseError as e:
+                logger.error('Database error creating group: %s', e)
+                messages.error(request, 'An error occurred while creating the group.')
+                return HttpResponseServerError('Internal server error')
     else:
         form = GroupCreateForm()
 
@@ -112,13 +129,19 @@ def group_detail_view(request, group_id):
     """
     group = get_object_or_404(Group, id=group_id)
 
-    # Check if user is a member
-    if not group.is_member(request.user) and not group.is_owner(request.user):
-        messages.error(request, 'You do not have permission to view this group.')
-        return redirect('group_list')
+    # Check if user is a member (explicit permission check)
+    if not (group.is_member(request.user) or group.is_owner(request.user)):
+        logger.warning('Permission denied: User %s attempted to view group %s', request.user.username, group.id)
+        raise PermissionDenied('You do not have permission to view this group.')
 
-    members = group.members.all().order_by('username')
-    is_owner = group.is_owner(request.user)
+    try:
+        # Prefetch members to avoid N+1 queries
+        members = group.members.all().order_by('username')
+        is_owner = group.is_owner(request.user)
+    except DatabaseError as e:
+        logger.error('Database error retrieving group %s details: %s', group.id, e)
+        messages.error(request, 'An error occurred while loading group details.')
+        return redirect('group_list')
 
     return render(request, 'calendar_app/group_detail.html', {
         'group': group,
@@ -191,7 +214,11 @@ def group_calendar_view(request, group_id):
                 data = form.cleaned_data
                 selected_date = data['date']
                 # Get ALL group unavailability entries for this date
-                unavail_list = GroupUnavailability.objects.filter(group=group, date=selected_date)
+                # Use select_related to fetch user data in one query (avoid N+1)
+                unavail_list = GroupUnavailability.objects.filter(
+                    group=group,
+                    date=selected_date
+                ).select_related('user')
 
                 start_dt = datetime.datetime.combine(selected_date, datetime.time(8, 0))
                 end_dt = datetime.datetime.combine(selected_date, datetime.time(20, 0))
@@ -218,7 +245,8 @@ def group_calendar_view(request, group_id):
         elif 'show_last_five' in request.POST:
             form = GroupUnavailabilityForm()
             # Get last five entries for this group
-            last_five = GroupUnavailability.objects.filter(group=group).order_by('-id')[:5]
+            # Use select_related to optimize user data fetching
+            last_five = GroupUnavailability.objects.filter(group=group).select_related('user').order_by('-id')[:5]
             choices = []
             for entry in last_five:
                 # Include username in label so users know who created it
@@ -233,7 +261,8 @@ def group_calendar_view(request, group_id):
         elif 'delete_selected' in request.POST:
             form = GroupUnavailabilityForm()
             # Repopulate choices from the last five entries
-            last_five = GroupUnavailability.objects.filter(group=group).order_by('-id')[:5]
+            # Use select_related to optimize user data fetching
+            last_five = GroupUnavailability.objects.filter(group=group).select_related('user').order_by('-id')[:5]
             choices = []
             for entry in last_five:
                 description_text = f' - {entry.description}' if entry.description else ''
@@ -306,10 +335,13 @@ def group_add_member_view(request, group_id):
     """
     group = get_object_or_404(Group, id=group_id)
 
-    # Check if user is the owner
+    # Check if user is the owner (explicit permission check)
     if not group.is_owner(request.user):
-        messages.error(request, 'Only the group owner can add members.')
-        return redirect('group_detail', group_id=group.id)
+        logger.warning(
+            'Permission denied: User %s attempted to add member to group %s',
+            request.user.username, group.id
+        )
+        raise PermissionDenied('Only the group owner can add members.')
 
     if request.method == 'POST':
         form = AddMemberForm(request.POST)
@@ -355,10 +387,13 @@ def group_remove_member_view(request, group_id, user_id):
     group = get_object_or_404(Group, id=group_id)
     user_to_remove = get_object_or_404(User, id=user_id)
 
-    # Check if user is the owner
+    # Check if user is the owner (explicit permission check)
     if not group.is_owner(request.user):
-        messages.error(request, 'Only the group owner can remove members.')
-        return redirect('group_detail', group_id=group.id)
+        logger.warning(
+            'Permission denied: User %s attempted to remove member from group %s',
+            request.user.username, group.id
+        )
+        raise PermissionDenied('Only the group owner can remove members.')
 
     # Cannot remove the owner
     if user_to_remove == group.created_by:
@@ -396,10 +431,10 @@ def group_delete_view(request, group_id):
     """
     group = get_object_or_404(Group, id=group_id)
 
-    # Check if user is the owner
+    # Check if user is the owner (explicit permission check)
     if not group.is_owner(request.user):
-        messages.error(request, 'Only the group owner can delete this group.')
-        return redirect('group_detail', group_id=group.id)
+        logger.warning('Permission denied: User %s attempted to delete group %s', request.user.username, group.id)
+        raise PermissionDenied('Only the group owner can delete this group.')
 
     if request.method == 'POST':
         group_name = group.name

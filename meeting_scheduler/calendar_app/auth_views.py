@@ -12,11 +12,17 @@ Views:
 
 Security Features: Login required decorators, password validation, session management.
 """
+import logging
 from django.contrib import messages
 from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required
+from django.db import DatabaseError, IntegrityError
 from django.shortcuts import render, redirect
+from django.http import HttpResponseServerError
 from .auth_forms import UserRegistrationForm, CustomAuthenticationForm, UserProfileForm
+
+# Configure logger for authentication module
+logger = logging.getLogger(__name__)
 
 
 def register_view(request):
@@ -38,13 +44,22 @@ def register_view(request):
     if request.method == 'POST':
         form = UserRegistrationForm(request.POST)
         if form.is_valid():
-            user = form.save()
-            login(request, user)
-            messages.success(
-                request,
-                f'Welcome {user.username}! Your account has been created successfully.'
-            )
-            return redirect('calendar')
+            try:
+                user = form.save()
+                login(request, user)
+                messages.success(
+                    request,
+                    f'Welcome {user.username}! Your account has been created successfully.'
+                )
+                logger.info('New user registered: %s', user.username)
+                return redirect('calendar')
+            except IntegrityError as e:
+                logger.error('Database integrity error during registration: %s', e)
+                messages.error(request, 'Username or email already exists. Please try again.')
+            except DatabaseError as e:
+                logger.error('Database error during registration: %s', e)
+                messages.error(request, 'An error occurred while creating your account. Please try again later.')
+                return HttpResponseServerError('Internal server error')
     else:
         form = UserRegistrationForm()
 
@@ -120,14 +135,24 @@ def account_view(request):
     if request.method == 'POST':
         form = UserProfileForm(request.POST, instance=request.user)
         if form.is_valid():
-            form.save()
-            messages.success(request, 'Your account information has been updated.')
-            return redirect('account')
+            try:
+                form.save()
+                messages.success(request, 'Your account information has been updated.')
+                logger.info('User %s updated their profile', request.user.username)
+                return redirect('account')
+            except DatabaseError as e:
+                logger.error('Database error updating profile for %s: %s', request.user.username, e)
+                messages.error(request, 'An error occurred while updating your profile. Please try again later.')
     else:
         form = UserProfileForm(instance=request.user)
 
-    # Get user's unavailability count
-    unavailability_count = request.user.unavailabilities.count()
+    # Get user's unavailability count with error handling
+    try:
+        unavailability_count = request.user.unavailabilities.count()
+    except DatabaseError as e:
+        logger.error('Database error retrieving unavailability count for %s: %s', request.user.username, e)
+        unavailability_count = 0
+        messages.warning(request, 'Could not load some account statistics.')
 
     context = {
         'form': form,

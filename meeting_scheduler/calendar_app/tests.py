@@ -689,7 +689,8 @@ class GroupViewsTest(TestCase):
         """Test that non-members cannot view group details"""
         self.client.login(username='user2', password='pass123')
         response = self.client.get(reverse('group_detail', args=[self.group.id]))
-        self.assertEqual(response.status_code, 302)
+        # Expect 403 Forbidden (PermissionDenied exception) instead of redirect
+        self.assertEqual(response.status_code, 403)
 
     def test_group_calendar_view_member_access(self):
         """Test that group members can view group calendar"""
