@@ -478,6 +478,11 @@ class AuthenticationTest(TestCase):
         self.assertFalse(response.context['form'].is_valid())
         # Should only have one user with this username
         self.assertEqual(User.objects.filter(username='testuser').count(), 1)
+        # Verify specific error message is displayed to user
+        self.assertContains(response, 'A user with that username already exists.')
+        # Verify the registration form is re-rendered with errors
+        self.assertIn('form', response.context)
+        self.assertFormError(response.context['form'], 'username', 'A user with that username already exists.')
 
     def test_registration_password_mismatch(self):
         """Test registration with mismatched passwords"""
@@ -493,6 +498,20 @@ class AuthenticationTest(TestCase):
         self.assertEqual(response.status_code, 200)
         # User should not be created
         self.assertFalse(User.objects.filter(username='newuser').exists())
+        # Verify specific error message is displayed to user (check for the key phrase)
+        self.assertContains(response, 'two password fields')
+        self.assertContains(response, 'match')
+        # Verify the registration form is re-rendered with errors
+        self.assertIn('form', response.context)
+        # Check that password2 field has the mismatch error
+        form = response.context['form']
+        self.assertTrue(form.has_error('password2'))
+        # Verify the exact error text in form errors
+        self.assertIn('password2', form.errors)
+        password_errors = form.errors['password2']
+        # Check that password mismatch error is present
+        self.assertTrue(any('password' in str(error).lower() and 'match' in str(error).lower()
+                           for error in password_errors))
 
     def test_registration_success_and_auto_login(self):
         """Test successful registration automatically logs user in"""
@@ -518,6 +537,11 @@ class AuthenticationTest(TestCase):
 
         # Verify session shows user is authenticated
         self.assertTrue('_auth_user_id' in self.client.session)
+
+        # Verify success message is displayed to user
+        messages = list(response.context['messages'])
+        self.assertEqual(len(messages), 1)
+        self.assertIn('Welcome newuser! Your account has been created successfully.', str(messages[0]))
 
 
 class GroupModelTest(TestCase):
