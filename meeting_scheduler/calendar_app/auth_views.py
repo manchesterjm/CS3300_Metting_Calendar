@@ -48,24 +48,10 @@ def register_view(request):
                 # Use atomic transaction for database operations only
                 with transaction.atomic():
                     user = form.save()
+                    # Verify user was saved successfully
+                    if not user.id:
+                        raise ValueError('Failed to create user account - user ID is None')
 
-                # Login after successful transaction (session operations outside transaction)
-                # Verify user was saved successfully before logging in
-                if user.id is not None:
-                    login(request, user)
-                    messages.success(
-                        request,
-                        f'Welcome {user.username}! Your account has been created successfully.'
-                    )
-                    logger.info('New user registered: %s', user.username)
-                    return redirect('calendar')
-
-                # User creation failed despite no exception
-                logger.error(
-                    'User creation failed without exception for username: %s',
-                    form.cleaned_data.get('username')
-                )
-                messages.error(request, 'Account creation failed. Please try again.')
             except IntegrityError as e:
                 logger.error('Database integrity error during registration: %s', e)
                 messages.error(request, 'Username or email already exists. Please try again.')
@@ -73,6 +59,19 @@ def register_view(request):
                 logger.error('Database error during registration: %s', e)
                 messages.error(request, 'An error occurred while creating your account. Please try again later.')
                 return HttpResponseServerError('Internal server error')
+            except ValueError as e:
+                logger.error('User creation validation error: %s', e)
+                messages.error(request, 'Account creation failed. Please try again.')
+            else:
+                # Success path - login after successful transaction
+                # Session operations outside transaction block
+                login(request, user)
+                messages.success(
+                    request,
+                    f'Welcome {user.username}! Your account has been created successfully.'
+                )
+                logger.info('New user registered and logged in: %s', user.username)
+                return redirect('calendar')
     else:
         form = UserRegistrationForm()
 
