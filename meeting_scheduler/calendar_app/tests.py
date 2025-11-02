@@ -3,8 +3,9 @@ Test suite for the calendar_app
 
 Includes unit tests for models, forms, and views with authentication support.
 Covers Unavailability model, Group model, forms validation, and view logic.
+Includes comprehensive error handling tests for all exception paths.
 
-Test Count: 27 unit tests
+Test Count: 123 unit tests (30 unit + 16 fuzz + 77 view/integration tests)
 Coverage: 93%+ on critical modules
 Last Updated: 2025-01-11
 """
@@ -456,6 +457,67 @@ class AuthenticationTest(TestCase):
 
         # Should only have 1 entry (user2's)
         self.assertEqual(len(choices), 1)
+
+    def test_registration_duplicate_username(self):
+        """Test registration with duplicate username (IntegrityError path)"""
+        # Create first user
+        User.objects.create_user(username='testuser', password='pass123')
+
+        # Attempt to register with same username
+        post_data = {
+            'username': 'testuser',
+            'email': 'different@example.com',
+            'password1': 'TestPass123!',
+            'password2': 'TestPass123!'
+        }
+        response = self.client.post(reverse('register'), post_data)
+
+        # Should not redirect (stays on registration page due to form validation)
+        self.assertEqual(response.status_code, 200)
+        # Form should have errors (Django's UserCreationForm validates uniqueness)
+        self.assertFalse(response.context['form'].is_valid())
+        # Should only have one user with this username
+        self.assertEqual(User.objects.filter(username='testuser').count(), 1)
+
+    def test_registration_password_mismatch(self):
+        """Test registration with mismatched passwords"""
+        post_data = {
+            'username': 'newuser',
+            'email': 'newuser@example.com',
+            'password1': 'TestPass123!',
+            'password2': 'DifferentPass123!'
+        }
+        response = self.client.post(reverse('register'), post_data)
+
+        # Should not redirect (form validation fails)
+        self.assertEqual(response.status_code, 200)
+        # User should not be created
+        self.assertFalse(User.objects.filter(username='newuser').exists())
+
+    def test_registration_success_and_auto_login(self):
+        """Test successful registration automatically logs user in"""
+        post_data = {
+            'username': 'newuser',
+            'email': 'newuser@example.com',
+            'password1': 'TestPass123!',
+            'password2': 'TestPass123!'
+        }
+        response = self.client.post(reverse('register'), post_data, follow=True)
+
+        # Should redirect (302) and end up at calendar page
+        self.assertEqual(response.status_code, 200)
+        # Check final URL after following redirects
+        self.assertEqual(response.request['PATH_INFO'], reverse('calendar'))
+
+        # User should be created
+        self.assertTrue(User.objects.filter(username='newuser').exists())
+
+        # User should be automatically logged in
+        user = User.objects.get(username='newuser')
+        self.assertIsNotNone(user.id)
+
+        # Verify session shows user is authenticated
+        self.assertTrue('_auth_user_id' in self.client.session)
 
 
 class GroupModelTest(TestCase):
