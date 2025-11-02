@@ -4,6 +4,9 @@ Django views for the calendar application.
 This module contains the main view logic for the meeting scheduler,
 including handling unavailability entry creation, free time slot calculation,
 entry display, and deletion functionality.
+
+TODO: Consider adding timezone support for international users.
+TODO: Optimize free time calculation with database-level queries.
 """
 import datetime
 from django.contrib import messages

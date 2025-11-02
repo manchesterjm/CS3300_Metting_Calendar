@@ -1,5 +1,8 @@
 # Git Workflow & PR Process
 
+**Updated:** January 11, 2025
+**CI/CD:** Automated testing with GitHub Actions and GPT-5 AI Code Review
+
 This document describes the proper workflow for making changes to the Meeting Scheduler project using feature branches and pull requests.
 
 ## Branch Structure

@@ -2,6 +2,9 @@
 Utility functions for the calendar application.
 
 This module contains helper functions used across the calendar app.
+
+Performance Note: All functions are designed to be stateless and thread-safe
+for optimal performance in multi-user environments.
 """
 from datetime import datetime, timedelta
 

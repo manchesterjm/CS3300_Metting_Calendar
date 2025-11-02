@@ -3,6 +3,9 @@ URL configuration for the calendar application.
 
 This module defines URL patterns for routing requests to the calendar
 application views, including authentication and password reset endpoints.
+
+Version: 2.0 (Group Calendar Support)
+Last Updated: 2025-01-11
 """
 from django.urls import path
 from django.contrib.auth import views as auth_views

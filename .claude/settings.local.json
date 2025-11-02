@@ -26,7 +26,22 @@
       "Bash(timeout 5 python:*)",
       "Bash(timeout 300 python:*)",
       "Bash(git commit:*)",
-      "Bash(python -c:*)"
+      "Bash(python -c:*)",
+      "Bash(python -m pylint:*)",
+      "Bash(git ls-tree:*)",
+      "Bash(git fetch:*)",
+      "Bash(git checkout:*)",
+      "Bash(git stash:*)",
+      "Bash(gh pr:*)",
+      "Bash(git pull:*)",
+      "Bash(python -m coverage run:*)",
+      "Bash(python -m coverage report:*)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(pytest:*)",
+      "Bash(git restore:*)",
+      "Bash(cat:*)",
+      "Bash(curl:*)"
     ],
     "deny": [],
     "ask": []

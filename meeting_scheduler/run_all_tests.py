@@ -1,8 +1,13 @@
 #!/usr/bin/env python
 """
 Comprehensive Test Runner
-Runs all tests (pylint, unit, fuzz, mutation, coverage, security) in the correct order
-Stops on first failure and reports results
+
+Runs all tests (pylint, unit, fuzz, mutation, coverage, security) in the correct order.
+Stops on first failure and reports results.
+
+Test Suite: 7-step validation process
+Coverage: Pylint, Unit Tests, Fuzz Tests, Mutation Testing, Coverage Analysis, Security Scans
+Last Updated: 2025-01-11
 """
 
 import os

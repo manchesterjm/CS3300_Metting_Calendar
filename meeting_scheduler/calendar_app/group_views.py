@@ -3,6 +3,8 @@ Django views for group calendar functionality.
 
 This module contains views for managing groups and group calendars,
 including group creation, member management, and shared calendar functionality.
+
+Features: Role-based access control (owner vs member permissions).
 """
 import datetime
 from django.contrib import messages

@@ -3,6 +3,8 @@ Authentication views for the calendar application.
 
 This module contains views for user registration, login, logout,
 and account management.
+
+Security Features: Login required decorators, password validation, session management.
 """
 from django.contrib import messages
 from django.contrib.auth import login, logout

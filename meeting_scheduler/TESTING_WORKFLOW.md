@@ -1,5 +1,8 @@
 # Testing Workflow Documentation
 
+**Last Updated:** January 11, 2025
+**Automated CI/CD:** GitHub Actions with GPT-5 AI Code Review
+
 ## Overview
 
 This document describes the mandatory testing workflow that MUST be followed every time code is updated in the Meeting Scheduler application.

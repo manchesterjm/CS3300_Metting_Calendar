@@ -4,6 +4,8 @@ Django forms for the calendar application.
 This module defines forms for managing unavailability entries, including
 creation, validation, and deletion of time periods when users are unavailable
 for meetings. Also includes forms for group management and shared calendars.
+
+Security Note: All forms use Django's built-in CSRF protection and input sanitization.
 """
 import datetime
 

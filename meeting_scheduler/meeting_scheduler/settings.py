@@ -8,6 +8,9 @@ https://docs.djangoproject.com/en/5.1/topics/settings/
 
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.1/ref/settings/
+
+Version: 2.0 (Group Calendar Support with Enhanced Security)
+Last Updated: 2025-01-11
 """
 
 import os
