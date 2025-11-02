@@ -1,6 +1,5 @@
 name: Run Django Tests with Coverage
 
-# Runs on all pushes and pull requests to any branch
 on:
   push:
     branches: ["**"]
@@ -39,7 +38,7 @@ jobs:
           pytest --cov=calendar_app --cov-report=xml --cov-report=term-missing --junitxml=pytest.xml || {
             code=$?
             if [ "$code" -eq 5 ]; then
-              echo "No tests collected (pytest exit code 5). Treating as success for CI coverage requirement."
+              echo "No tests collected. Treating as success for CI."
               exit 0
             else
               exit $code
@@ -66,19 +65,19 @@ jobs:
           echo "time=$TIME" >> $GITHUB_OUTPUT
           echo "coverage=$COVERAGE" >> $GITHUB_OUTPUT
 
-      - name: Post test results comment (updates on each commit)
+      - name: Post test results comment
         if: github.event_name == 'pull_request'
         uses: marocchino/sticky-pull-request-comment@v2
         with:
           header: pytest-coverage
           message: |
-            ## 🧪 Test Results
+            ## Test Results
 
             | Tests | Passed | Skipped | Failures | Errors | Time |
             |-------|--------|---------|----------|--------|------|
-            | ${{ steps.test-results.outputs.total }} | ${{ steps.test-results.outputs.passed }} ✅ | ${{ steps.test-results.outputs.skipped }} 💤 | ${{ steps.test-results.outputs.failures }} ❌ | ${{ steps.test-results.outputs.errors }} 🔥 | ${{ steps.test-results.outputs.time }}s ⏱️ |
+            | ${{ steps.test-results.outputs.total }} | ${{ steps.test-results.outputs.passed }} | ${{ steps.test-results.outputs.skipped }} | ${{ steps.test-results.outputs.failures }} | ${{ steps.test-results.outputs.errors }} | ${{ steps.test-results.outputs.time }}s |
 
-            ## 📊 Coverage: ${{ steps.test-results.outputs.coverage }}%
+            ## Coverage: ${{ steps.test-results.outputs.coverage }}%
 
             **Coverage Requirement:** 80%+ overall
 
@@ -104,14 +103,4 @@ jobs:
       - name: Check coverage threshold
         run: |
           cd meeting_scheduler
-          python -c "
-import xml.etree.ElementTree as ET
-tree = ET.parse('coverage.xml')
-root = tree.getroot()
-coverage = round(float(root.attrib['line-rate']) * 100, 1)
-print(f'Coverage: {coverage}%')
-if coverage < 80:
-    print(f'ERROR: Coverage {coverage}% is below required 80%')
-    exit(1)
-print('✅ Coverage meets 80% requirement')
-"
+          python3 -c "import xml.etree.ElementTree as ET; tree = ET.parse('coverage.xml'); root = tree.getroot(); coverage = round(float(root.attrib['line-rate']) * 100, 1); print(f'Coverage: {coverage}%'); exit(1) if coverage < 80 else print('Coverage meets 80% requirement')"
