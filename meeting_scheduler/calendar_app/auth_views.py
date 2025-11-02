@@ -45,10 +45,11 @@ def register_view(request):
         form = UserRegistrationForm(request.POST)
         if form.is_valid():
             try:
-                # Use atomic transaction to ensure user creation and login are atomic
+                # Use atomic transaction for database operations only
                 with transaction.atomic():
                     user = form.save()
-                    login(request, user)
+                # Login after successful transaction (session operations outside transaction)
+                login(request, user)
                 messages.success(
                     request,
                     f'Welcome {user.username}! Your account has been created successfully.'
