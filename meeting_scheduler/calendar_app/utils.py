@@ -1,0 +1,47 @@
+"""
+Utility functions for the calendar application.
+
+This module contains helper functions used across the calendar app.
+"""
+from datetime import datetime, timedelta
+
+
+def calculate_meeting_duration(start_time, end_time):
+    """
+    Calculate the duration between two times in minutes.
+
+    Args:
+        start_time: Start time as datetime.time object
+        end_time: End time as datetime.time object
+
+    Returns:
+        int: Duration in minutes
+    """
+    # Convert time to datetime for calculation
+    today = datetime.today().date()
+    start_dt = datetime.combine(today, start_time)
+    end_dt = datetime.combine(today, end_time)
+
+    duration = end_dt - start_dt
+    return int(duration.total_seconds() / 60)
+
+
+def format_time_slot(time_slot):
+    """
+    Format a time slot for display.
+
+    Args:
+        time_slot: Time as string in HH:MM format
+
+    Returns:
+        str: Formatted time slot (e.g., "2:30 PM")
+    """
+    hour, minute = map(int, time_slot.split(':'))
+
+    # Convert to 12-hour format
+    period = 'AM' if hour < 12 else 'PM'
+    display_hour = hour if hour <= 12 else hour - 12
+    if display_hour == 0:
+        display_hour = 12
+
+    return f"{display_hour}:{minute:02d} {period}"
