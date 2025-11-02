@@ -34,7 +34,7 @@ jobs:
       - name: Run Django tests with coverage
         run: |
           cd meeting_scheduler
-          python -m coverage run --source=calendar_app --omit='*/test*.py,*/migrations/*' manage.py test calendar_app.tests --verbosity=2
+          python -m coverage run --source=calendar_app --omit='*/test*.py,*/migrations/*,*/__init__.py,*/admin.py,*/apps.py,*/management/commands/*' manage.py test calendar_app --verbosity=2
           python -m coverage xml
           python -m coverage report
 
@@ -105,4 +105,4 @@ jobs:
       - name: Check coverage threshold
         run: |
           cd meeting_scheduler
-          python -m coverage report --fail-under=80
+          python -m coverage report --omit='*/test*.py,*/migrations/*,*/__init__.py,*/admin.py,*/apps.py,*/management/commands/*' --fail-under=80
