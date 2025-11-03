@@ -21,12 +21,14 @@ beautifulsoup4==4.12.3
 requests==2.32.3
 
 # Development & Testing
-pylint>=4.0.0
-hypothesis>=6.143.0
-coverage>=7.11.0
-pytest>=8.4.0
+# Using ~= for compatible release (allows bug fixes, not breaking changes)
+pylint~=4.0.0
+hypothesis~=6.143.0
+coverage~=7.11.0
+pytest~=8.4.0
 
 # Security Scanning (development only)
-bandit>=1.7.10
-safety>=3.3.2
-semgrep>=1.111.0
+# Using ~= to allow minor updates while preventing breaking changes
+bandit~=1.7.10
+safety~=3.3.2
+semgrep~=1.111.0

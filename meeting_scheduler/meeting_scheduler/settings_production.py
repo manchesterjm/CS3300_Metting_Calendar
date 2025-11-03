@@ -13,7 +13,14 @@ import os
 
 # Generate a new SECRET_KEY for production using:
 # python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
-SECRET_KEY = os.environ.get('SECRET_KEY', 'CHANGE-THIS-IN-PRODUCTION')
+# CRITICAL: SECRET_KEY must be set in production - no default fallback
+SECRET_KEY = os.environ.get('SECRET_KEY')
+if not SECRET_KEY or SECRET_KEY == 'CHANGE-THIS-IN-PRODUCTION':
+    raise ValueError(
+        "SECRET_KEY environment variable is not set or is using the default value. "
+        "Generate a new secret key using: "
+        "python -c \"from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())\""
+    )
 
 # SECURITY: Disable debug mode in production
 DEBUG = False
@@ -22,8 +29,13 @@ DEBUG = False
 # Example: ['johndoe.pythonanywhere.com', 'www.yourdomain.com']
 ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'YOUR_USERNAME.pythonanywhere.com').split(',')
 
-# Database
-# PythonAnywhere uses SQLite3 - works great for this application
+# Database Configuration
+# SQLite is suitable for small to medium applications (< 100 concurrent users)
+# For production applications with high traffic, consider PostgreSQL
+#
+# OPTION 1: SQLite (Default - Simple, no setup required)
+# Pros: Easy setup, no additional configuration, included with PythonAnywhere
+# Cons: Limited concurrency, not suitable for high-traffic applications
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
@@ -33,6 +45,28 @@ DATABASES = {
         }
     }
 }
+
+# OPTION 2: PostgreSQL (Recommended for scaling)
+# Uncomment below and comment out SQLite configuration if expecting growth
+# Pros: Better performance, handles concurrency well, production-grade
+# Cons: Requires additional setup and possibly paid PostgreSQL hosting
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.postgresql_psycopg2',
+#         'NAME': os.environ.get('DB_NAME', 'meeting_scheduler'),
+#         'USER': os.environ.get('DB_USER', 'dbuser'),
+#         'PASSWORD': os.environ.get('DB_PASSWORD'),
+#         'HOST': os.environ.get('DB_HOST', 'localhost'),
+#         'PORT': os.environ.get('DB_PORT', '5432'),
+#     }
+# }
+#
+# To use PostgreSQL on PythonAnywhere:
+# 1. Upgrade to a paid plan (Hacker plan supports external databases)
+# 2. Set up PostgreSQL on a service like ElephantSQL or AWS RDS
+# 3. Update environment variables with database credentials
+# 4. Install psycopg2-binary: pip install psycopg2-binary
+# 5. Run migrations: python manage.py migrate
 
 # Email Configuration for PythonAnywhere
 # Uses Gmail SMTP - requires Gmail App Password (not regular password)
