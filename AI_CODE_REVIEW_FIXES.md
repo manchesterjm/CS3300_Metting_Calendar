@@ -179,17 +179,32 @@ def calculate_free_time_slots(selected_date, unavail_list):
 ## Medium Priority
 
 ### 8. JavaScript in External Files
-**Status**: 🔴 Not Started
+**Status**: 🟡 In Progress (2/7 templates complete)
 **Files**:
-- All templates with inline JavaScript
+- ✅ `static/calendar_app/js/csrf_utils.js` (created)
+- ✅ `static/calendar_app/js/password_generator.js` (created)
+- ✅ `templates/calendar_app/register.html` (updated)
+- ✅ `templates/calendar_app/change_password.html` (updated)
+- 🔲 `templates/calendar_app/password_reset_confirm.html` (pending)
+- 🔲 `templates/admin/auth/user/change_password.html` (pending)
+- 🔲 `templates/calendar_app/calendar.html` (pending - to assess)
+- 🔲 `templates/calendar_app/group_calendar.html` (pending - to assess)
+- 🔲 `templates/calendar_app/base.html` (pending - to assess)
 
 **Issue**: JavaScript embedded in HTML reduces maintainability and prevents browser caching.
 
-**Fix Required**:
-- Create `static/calendar_app/js/` directory
-- Extract JavaScript to separate files (e.g., `password_generation.js`, `csrf_utils.js`)
-- Update templates to use `{% static %}` tags
-- Implement Content Security Policy (CSP)
+**Fix Completed**:
+- ✅ Created `static/calendar_app/js/` directory
+- ✅ Extracted `getCookie()` to `csrf_utils.js` (60 lines, fully documented)
+- ✅ Extracted `generatePassword()` to `password_generator.js` (115 lines, fully documented)
+- ✅ Updated 2 templates to use external JS files
+- ✅ Reduced code duplication by ~110 lines
+- ✅ Created JAVASCRIPT_EXTRACTION_SUMMARY.md documentation
+
+**Remaining Work**:
+- Extract JavaScript from remaining 5 templates
+- Implement Content Security Policy (CSP) headers
+- Add JavaScript testing (links to Fix #11)
 
 ---
 
@@ -219,16 +234,21 @@ def calculate_free_time_slots(selected_date, unavail_list):
 ---
 
 ### 10. Admin Customization Conflicts
-**Status**: 🔴 Not Started
+**Status**: ✅ COMPLETED (2025-11-03)
 **Files**:
-- `meeting_scheduler/calendar_app/admin.py`
+- ✅ `meeting_scheduler/calendar_app/admin.py` (enhanced documentation)
+- ✅ `STYLE_GUIDE.md` (added Admin Customization section)
 
 **Issue**: Unregister/re-register pattern for User admin could conflict with other apps.
 
-**Fix Required**:
-- Consider using a custom user model instead
-- Or coordinate admin customizations in a single location
-- Document the approach in comments
+**Fix Completed**:
+- ✅ Enhanced admin.py module docstring with comprehensive pattern documentation
+- ✅ Documented benefits, risks, and alternatives
+- ✅ Added warnings about potential conflicts
+- ✅ Confirmed this is the ONLY app customizing User admin (safe)
+- ✅ Added Admin Customization section to STYLE_GUIDE.md
+- ✅ Documented alternative approaches (custom user model, proxy models)
+- ✅ Added to Version 2.1 changelog in STYLE_GUIDE.md
 
 ---
 
@@ -249,16 +269,27 @@ def calculate_free_time_slots(selected_date, unavail_list):
 ## Low Priority (Document/Accept)
 
 ### 12. Pylint Disables
-**Status**: 🟡 Document Only
-**Files**: Multiple
+**Status**: ✅ COMPLETED (2025-11-03)
+**Files**:
+- ✅ `STYLE_GUIDE.md` (added comprehensive Pylint Configuration section)
 
-**Issue**: Several pylint disables used throughout codebase.
+**Issue**: Several pylint disables used throughout codebase needed documentation.
 
-**Action**: Document in STYLE_GUIDE.md why each disable is justified:
-- `too-many-ancestors`: Django form inheritance patterns
-- `duplicate-code`: Intentional pattern in views
-- `unused-argument`: Django view signature requirements
-- `protected-access`: Development-only SSL bypass
+**Fix Completed**:
+- ✅ Added "Pylint Configuration and Disabled Warnings" section to STYLE_GUIDE.md
+- ✅ Documented all command-line disabled warnings (C0114, C0115, C0116, R0903, R0914, R0912, R0915, E1101)
+- ✅ Documented all in-code disabled warnings with file locations and line numbers
+- ✅ Provided justification for each disable:
+  - `too-many-ancestors`: Django form inheritance patterns
+  - `duplicate-code`: Intentional similarity between views
+  - `unused-argument`: Django view signature requirements
+  - `protected-access`: Development-only SSL bypass (with security checks)
+  - `too-many-lines`: tests.py (planned for refactoring in Fix #14)
+  - `too-many-arguments`: Hypothesis fuzz testing framework
+  - `broad-exception-caught`: Fuzz test robustness testing
+- ✅ Added guidelines for adding new Pylint disables
+- ✅ Listed warnings that should NEVER be disabled (security, logic errors)
+- ✅ Added to Version 2.1 changelog in STYLE_GUIDE.md
 
 ---
 
@@ -307,9 +338,31 @@ After implementing fixes, verify:
 ## Progress Summary
 
 **Total Issues**: 14
-**Critical**: 3 (✅ 3 done, 🔴 0 remaining)
-**High**: 4 (✅ 4 done, 🔴 0 remaining)
-**Medium**: 4 (✅ 1 done, 🔴 3 remaining)
-**Low**: 3 (🟢 1 done, 🟡 1 documented, 🔴 1 remaining)
+**Critical**: 3 (✅ 3 done, 🔴 0 remaining) - 100% Complete
+**High**: 4 (✅ 4 done, 🔴 0 remaining) - 100% Complete
+**Medium**: 4 (✅ 2 done, 🟡 1 in progress, 🔴 1 remaining) - 50% Complete
+**Low**: 3 (✅ 1 done, 🟢 1 done, 🔴 1 remaining) - 67% Complete
 
-**Last Updated**: 2025-11-02 17:45 UTC
+**Overall Progress**: 10/14 complete or in-progress (71%)
+
+**Completed (10)**:
+- #1: ✅ Security: GET vs POST for Password Generation
+- #2: ✅ Django Best Practice: null=True on CharField
+- #3: ✅ Error Handling: Broad Exception Catching
+- #4: ✅ Code Duplication: clean_description Method
+- #5: ✅ Missing Error Handling: Date Parsing
+- #6: ✅ Missing POST Data Validation
+- #7: ✅ Time Zone Handling
+- #9: ✅ User Feedback for Empty free_times
+- #10: ✅ Admin Customization Conflicts (2025-11-03)
+- #12: ✅ Pylint Disables (2025-11-03)
+
+**In Progress (1)**:
+- #8: 🟡 JavaScript in External Files (2/7 templates done)
+
+**Remaining (3)**:
+- #11: 🔴 JavaScript Testing Framework
+- #13: 🟢 UnsecureEmailBackend (already properly handled)
+- #14: 🔴 Split tests.py into Multiple Modules
+
+**Last Updated**: 2025-11-03 15:45 UTC

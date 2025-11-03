@@ -1,4 +1,5 @@
 {% extends "calendar_app/base.html" %}
+{% load static %}
 
 {% block title %}Register - Meeting Calendar{% endblock %}
 
@@ -143,7 +144,7 @@ ul.errorlist {
                     {{ field.errors }}
                 {% endif %}
                 {% if field.name == 'password1' %}
-                    <button type="button" class="btn-secondary generate-password-btn" onclick="generatePassword(this)">
+                    <button type="button" class="btn-secondary generate-password-btn" onclick="generatePasswordForForm(this)">
                         Generate Secure Password
                     </button>
                 {% endif %}
@@ -158,55 +159,18 @@ ul.errorlist {
     </div>
 </div>
 
+<!-- External JavaScript -->
+<script src="{% static 'calendar_app/js/csrf_utils.js' %}"></script>
+<script src="{% static 'calendar_app/js/password_generator.js' %}"></script>
+
+<!-- Page-specific configuration -->
 <script>
-function getCookie(name) {
-    let cookieValue = null;
-    if (document.cookie && document.cookie !== '') {
-        const cookies = document.cookie.split(';');
-        for (let i = 0; i < cookies.length; i++) {
-            const cookie = cookies[i].trim();
-            if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                break;
-            }
-        }
-    }
-    return cookieValue;
-}
+// Define API URL for password generation (Django template tag)
+const PASSWORD_API_URL = "{% url 'generate_password_api' %}";
 
-async function generatePassword(btn) {
-    try {
-        const csrftoken = getCookie('csrftoken');
-        const response = await fetch("{% url 'generate_password_api' %}", {
-            method: 'POST',
-            headers: {
-                'X-CSRFToken': csrftoken
-            }
-        });
-        const data = await response.json();
-
-        if (data.password) {
-            // Set both password fields
-            document.getElementById('id_password1').value = data.password;
-            document.getElementById('id_password2').value = data.password;
-
-            // Show visual feedback
-            const originalText = btn.textContent;
-            const originalBg = btn.style.backgroundColor;
-            btn.textContent = 'Password Generated!';
-            btn.style.backgroundColor = '#27ae60';
-
-            setTimeout(() => {
-                btn.textContent = originalText;
-                btn.style.backgroundColor = originalBg;
-            }, 2000);
-        } else if (data.error) {
-            alert('Error generating password: ' + data.error);
-        }
-    } catch (error) {
-        console.error('Error:', error);
-        alert('Failed to generate password. Please try again.');
-    }
+// Wrapper function to call generatePassword with the API URL
+function generatePasswordForForm(btn) {
+    generatePassword(btn, PASSWORD_API_URL);
 }
 </script>
 {% endblock %}

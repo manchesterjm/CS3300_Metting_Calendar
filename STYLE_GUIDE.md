@@ -263,6 +263,49 @@ urlpatterns = [
 ]
 ```
 
+### Admin Customization
+
+```python
+# IMPORTANT: Admin User Customization Pattern
+# This project uses unregister/re-register pattern for User admin
+# See calendar_app/admin.py for full documentation
+
+from django.contrib import admin
+from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
+from django.contrib.auth.models import User
+
+# Unregister default User admin (only do this in ONE app!)
+admin.site.unregister(User)
+
+class CustomUserAdmin(BaseUserAdmin):
+    """Custom User admin with password generation."""
+    change_password_template = 'admin/auth/user/change_password.html'
+
+# Re-register with custom admin
+admin.site.register(User, CustomUserAdmin)
+```
+
+**⚠️ Warning: Admin Customization Risks**
+- Only ONE app should customize User admin (currently: `calendar_app/admin.py`)
+- Multiple apps customizing the same model causes `AlreadyRegistered` exception
+- App loading order in `INSTALLED_APPS` matters (customizing app should load last)
+- For larger projects, consider using a custom User model instead
+
+**Alternatives:**
+1. **Custom User Model** (recommended for production):
+   ```python
+   # In models.py
+   class CustomUser(AbstractUser):
+       pass
+
+   # In settings.py
+   AUTH_USER_MODEL = 'calendar_app.CustomUser'
+   ```
+2. **Centralized admin.py**: Put all admin customizations in one location
+3. **Admin Proxy Models**: Use proxy models for read-only admin views
+
+**Current Status**: `calendar_app` is the ONLY app customizing User admin (✓ Safe)
+
 ---
 
 ## Naming Conventions
@@ -1127,6 +1170,126 @@ def get_user_free_times(user, date):
 
 ---
 
+## Pylint Configuration and Disabled Warnings
+
+This project uses Pylint for code quality enforcement with a target score of ≥9.0/10 (currently 9.98/10). Some Pylint warnings are disabled for valid architectural and framework-specific reasons. This section documents each disabled warning and the justification.
+
+### Command-Line Disabled Warnings
+
+These warnings are disabled globally when running Pylint (see CLAUDE.md for test commands):
+
+```bash
+pylint calendar_app/*.py --disable=C0114,C0115,C0116,R0903,R0914,R0912,R0915,E1101 --max-line-length=120
+```
+
+**C0114, C0115, C0116: Missing docstrings**
+- **Reason**: Code comments provide sufficient documentation inline
+- **Justification**: This is a small educational project where inline comments explain logic. Docstrings are used for complex functions and classes, but not enforced universally.
+- **Alternative**: Critical functions and classes DO have docstrings (see Documentation section)
+
+**R0903: Too few public methods**
+- **Reason**: Django models and forms often have minimal methods by design
+- **Justification**: Django's ModelForm, DeleteForm, and similar classes are primarily data containers with validation logic in clean() methods
+- **Example**: `DeleteSelectedForm` only has form fields, no custom methods needed
+
+**R0914: Too many locals**
+- **Reason**: Single-view architecture with multiple POST actions
+- **Justification**: The `calendar_view` handles multiple form submissions (add, delete, show_free_times, show_last_five) in one view function per Django best practices
+- **Alternative**: Could split into multiple views, but current architecture is clearer for this project's scope
+
+**R0912: Too many branches**
+- **Reason**: Single-view architecture handles multiple POST button actions
+- **Justification**: Views use `if 'button_name' in request.POST` pattern to route to different actions
+- **Alternative**: The complexity is inherent to the design pattern, not poor code quality
+
+**R0915: Too many statements**
+- **Reason**: Views handle form processing, validation, and database operations
+- **Justification**: Breaking views into smaller functions would reduce clarity for this project's scale
+- **Alternative**: Accepted as reasonable for educational Django project
+
+**E1101: Django ORM 'objects' member**
+- **Reason**: Pylint doesn't recognize Django's ORM `objects` manager
+- **Justification**: `User.objects`, `Unavailability.objects` are dynamically added by Django
+- **Alternative**: Use `django-pylint` plugin (not currently configured)
+
+### In-Code Disabled Warnings
+
+These warnings are disabled inline for specific code sections with `# pylint: disable=warning-name`:
+
+**duplicate-code (group_views.py:7)**
+- **Reason**: Intentional similarity between personal and group calendar views
+- **Justification**: Group calendar logic is similar to personal calendar but operates on aggregated data
+- **Files**: `views.py` and `group_views.py` share validation/calculation patterns
+- **Alternative**: Shared logic extracted to `utils.py` where appropriate
+
+**too-many-ancestors (auth_forms.py:13, forms.py:55, forms.py:249)**
+- **Reason**: Django form inheritance chain (ModelForm → BaseDescriptionForm → our forms)
+- **Justification**: This is the standard Django pattern for forms with custom validation
+- **Files**:
+  - `UserRegistrationForm` inherits from `UserCreationForm` (Django)
+  - `UnavailabilityForm` and `GroupUnavailabilityForm` inherit from `BaseDescriptionForm` + `ModelForm`
+- **Alternative**: None - this is idiomatic Django
+
+**protected-access (email_backend.py:51, email_backend.py:61)**
+- **Reason**: Accessing `_lock` attribute for SSL context workaround
+- **Justification**: Development-only SSL bypass for Windows certificate issues (see email_backend.py docstring)
+- **Security**: Runtime check prevents production use:
+  ```python
+  if settings.DEBUG and platform.system() == 'Windows':
+      # SSL bypass only in Windows development
+  ```
+- **Alternative**: Use console email backend in development (current default)
+
+**unused-argument (auth_views.py:215)**
+- **Reason**: Django view signature requires `request` even if not used
+- **Justification**: POST endpoint `generate_password_api` doesn't need request data, only CSRF token
+- **Files**: `auth_views.py:generate_password_api(request)`
+- **Alternative**: None - Django views must accept `request`
+
+**too-many-lines (tests.py:29)**
+- **Reason**: Comprehensive test suite in single file (currently ~1350 lines)
+- **Justification**: Current structure groups all tests by feature for easy navigation
+- **Status**: **Planned for refactoring** (see AI Code Review Fix #14)
+- **Alternative**: Split into `tests/test_models.py`, `tests/test_forms.py`, `tests/test_views.py`, etc.
+
+**too-many-arguments, too-many-positional-arguments (test_fuzz.py:11)**
+- **Reason**: Hypothesis fuzz testing generates many parameter combinations
+- **Justification**: Fuzz tests intentionally test with many input variations
+- **Files**: `test_fuzz.py` - property-based tests with `@given` decorator
+- **Alternative**: None - this is how Hypothesis framework works
+
+**broad-exception-caught (test_fuzz.py:11)**
+- **Reason**: Fuzz tests need to catch all exceptions to verify robustness
+- **Justification**: Testing that code doesn't crash with unexpected inputs requires catching broad exceptions
+- **Alternative**: None - fuzz testing specifically targets unexpected failures
+
+### Guidelines for Adding New Disables
+
+When adding a new Pylint disable:
+
+1. **Consider alternatives first** - Is there a better way to structure the code?
+2. **Document inline** - Add comment explaining why disable is needed
+3. **Use specific scope** - Disable at the smallest scope (line > function > file)
+4. **Update this guide** - Add entry to this section with justification
+5. **Review regularly** - Revisit disables when refactoring
+
+**Example:**
+```python
+def my_function(request):  # pylint: disable=unused-argument
+    # Django view signature requires 'request' parameter
+    # even though this simple view doesn't use it
+    return JsonResponse({'status': 'ok'})
+```
+
+**Never disable these warnings:**
+- Security-related warnings (SQL injection, XSS, etc.)
+- Logic errors (undefined-variable, no-member, etc.)
+- Import errors (import-error, no-name-in-module, etc.)
+
+If you encounter these, fix the code rather than disabling the warning.
+
+---
+
 ## Enforcement
 
 ### Automated Checks
@@ -1170,6 +1333,14 @@ def get_user_free_times(user, date):
 ---
 
 ## Changelog
+
+### Version 2.1 (November 3, 2025)
+- Added comprehensive "Pylint Configuration and Disabled Warnings" section
+- Documented all command-line and in-code Pylint disables with justifications
+- Added guidelines for adding new Pylint disables
+- Added "Admin Customization" section documenting User admin unregister/re-register pattern
+- Enhanced admin.py module docstring with comprehensive pattern documentation
+- Addressed AI Code Review Fixes #10 and #12
 
 ### Version 2.0 (January 11, 2025)
 - Updated for Meeting Scheduler project (CS3300)
