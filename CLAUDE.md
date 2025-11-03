@@ -575,6 +575,363 @@ After receiving a comprehensive code review from ChatGPT AI, 8 of 14 identified 
 
 ---
 
+## Troubleshooting
+
+This section covers common issues and their solutions for the Meeting Scheduler application.
+
+### Server and Network Issues
+
+#### Issue: "Address already in use" when starting server
+**Symptoms**: `Error: That port is already in use.` or similar message
+
+**Solutions**:
+```bash
+# Option 1: Find and kill the process using port 8000 (Linux/Mac)
+lsof -ti:8000 | xargs kill -9
+
+# Option 2: Find and kill the process (Windows)
+netstat -ano | findstr :8000
+taskkill /PID <PID_NUMBER> /F
+
+# Option 3: Use a different port
+python manage.py runserver 8080
+```
+
+#### Issue: Cannot access server from another machine/VM
+**Symptoms**: Server starts but cannot connect from network
+
+**Solutions**:
+1. **Check if server is bound to 0.0.0.0**:
+   ```bash
+   python manage.py runserver 0.0.0.0:8000
+   ```
+
+2. **Update ALLOWED_HOSTS in settings.py**:
+   ```python
+   ALLOWED_HOSTS = ['localhost', '127.0.0.1', 'your-vm-ip', '*']  # For dev only
+   ```
+
+3. **Check firewall settings**:
+   ```bash
+   # Linux: Allow port 8000
+   sudo ufw allow 8000/tcp
+
+   # Windows: Add inbound rule in Windows Defender Firewall
+   # Go to: Windows Defender Firewall → Advanced Settings → Inbound Rules → New Rule
+   ```
+
+4. **Verify IP address**:
+   ```bash
+   # Linux/Mac
+   ifconfig | grep inet
+
+   # Windows
+   ipconfig
+   ```
+
+#### Issue: Static files not loading (CSS/JS missing)
+**Symptoms**: Pages render without styling, JavaScript not working
+
+**Solutions**:
+1. **Collect static files** (production):
+   ```bash
+   python manage.py collectstatic
+   ```
+
+2. **Check DEBUG mode** (development):
+   ```python
+   # In settings.py
+   DEBUG = True  # Serves static files automatically in dev mode
+   ```
+
+3. **Verify static file configuration**:
+   ```python
+   # In settings.py
+   STATIC_URL = '/static/'
+   STATICFILES_DIRS = [BASE_DIR / 'static']
+   ```
+
+### Database Issues
+
+#### Issue: "no such table" errors
+**Symptoms**: `django.db.utils.OperationalError: no such table: calendar_app_unavailability`
+
+**Solutions**:
+```bash
+# Run migrations
+python manage.py makemigrations
+python manage.py migrate
+
+# If migrations exist but aren't applied
+python manage.py migrate --run-syncdb
+
+# Check migration status
+python manage.py showmigrations
+```
+
+#### Issue: Database is locked
+**Symptoms**: `database is locked` error during operations
+
+**Solutions**:
+```bash
+# Option 1: Restart the server (SQLite doesn't support concurrent writes well)
+# Option 2: Check for background processes accessing the database
+# Option 3: Delete db.sqlite3 and recreate (DEVELOPMENT ONLY - loses all data!)
+rm db.sqlite3
+python manage.py migrate
+python manage.py createsuperuser
+```
+
+#### Issue: Migration conflicts
+**Symptoms**: `Conflicting migrations detected` or migration order issues
+
+**Solutions**:
+```bash
+# Option 1: Reset migrations (DEVELOPMENT ONLY)
+# Delete calendar_app/migrations/*.py (except __init__.py)
+# Delete db.sqlite3
+python manage.py makemigrations calendar_app
+python manage.py migrate
+
+# Option 2: Merge migrations
+python manage.py makemigrations --merge
+```
+
+### Testing Issues
+
+#### Issue: Tests fail with "test database cannot be created"
+**Symptoms**: Permission errors creating test database
+
+**Solutions**:
+```bash
+# Ensure you have write permissions in the project directory
+chmod +w meeting_scheduler/
+
+# On Windows, run as administrator if needed
+```
+
+#### Issue: Import errors when running tests
+**Symptoms**: `ModuleNotFoundError` or `ImportError` during test execution
+
+**Solutions**:
+```bash
+# Ensure virtual environment is activated
+source env/bin/activate  # Linux/Mac
+env\Scripts\activate     # Windows
+
+# Reinstall requirements
+pip install -r requirements.txt
+
+# Check Python path
+python -c "import sys; print(sys.path)"
+```
+
+#### Issue: Mutation tests fail unexpectedly
+**Symptoms**: Mutation score drops below 100%
+
+**Solutions**:
+```bash
+# Run mutation tests with verbose output
+python run_mutation_test.py
+
+# Check which mutations survived and add tests to kill them
+# Review the mutation test output for details
+```
+
+### Authentication and Password Issues
+
+#### Issue: Cannot login with created user
+**Symptoms**: "Invalid credentials" even with correct password
+
+**Solutions**:
+```python
+# In Django shell, reset the password
+python manage.py shell
+
+from django.contrib.auth.models import User
+user = User.objects.get(username='your_username')
+user.set_password('new_password')
+user.save()
+exit()
+```
+
+#### Issue: Password reset emails not working
+**Symptoms**: Password reset doesn't send emails
+
+**Solutions**:
+1. **Check email backend** (development uses console):
+   ```python
+   # In settings.py or local_settings.py
+   EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+   # Emails will print to console/terminal instead
+   ```
+
+2. **For real email** (production):
+   ```python
+   # Use environment variables, NEVER hardcode credentials
+   EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+   EMAIL_HOST = 'smtp.gmail.com'
+   EMAIL_PORT = 587
+   EMAIL_USE_TLS = True
+   EMAIL_HOST_USER = os.environ.get('EMAIL_USER')
+   EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_PASSWORD')
+   ```
+
+3. **Check spam folder** if using real email
+
+### Dependency Issues
+
+#### Issue: Module import errors after pip install
+**Symptoms**: `ModuleNotFoundError` even after installing packages
+
+**Solutions**:
+```bash
+# Verify virtual environment is activated
+which python  # Linux/Mac - should show env/bin/python
+where python  # Windows - should show env\Scripts\python.exe
+
+# Reinstall in correct environment
+pip uninstall <package>
+pip install <package>
+
+# Check installed packages
+pip list
+
+# Upgrade pip itself
+python -m pip install --upgrade pip
+```
+
+#### Issue: Version conflicts
+**Symptoms**: `ERROR: pip's dependency resolver does not currently take into account all the packages...`
+
+**Solutions**:
+```bash
+# Create fresh virtual environment
+deactivate  # Exit current venv
+rm -rf env  # Delete old venv
+python3 -m venv env
+source env/bin/activate  # Linux/Mac
+env\Scripts\activate     # Windows
+pip install -r requirements.txt
+```
+
+### Security Scan Issues
+
+#### Issue: Bandit false positives
+**Symptoms**: Security warnings for development-only code
+
+**Solutions**:
+- Check `.bandit` configuration file
+- Development-only workarounds (like UnsecureEmailBackend) have runtime checks preventing production use
+- Review SECURITY_GUIDE.md for justification of each disable
+
+#### Issue: pip-audit reports vulnerabilities
+**Symptoms**: Known vulnerabilities in dependencies
+
+**Solutions**:
+```bash
+# Update specific package
+pip install --upgrade <package>
+
+# Update Django
+pip install --upgrade django
+
+# Check for security updates
+pip list --outdated
+```
+
+### Production Deployment Issues
+
+#### Issue: DEBUG=False causes 500 errors
+**Symptoms**: Site works in development but not production
+
+**Checklist**:
+1. **Set ALLOWED_HOSTS**:
+   ```python
+   ALLOWED_HOSTS = ['yourdomain.com', 'www.yourdomain.com']
+   ```
+
+2. **Collect static files**:
+   ```bash
+   python manage.py collectstatic
+   ```
+
+3. **Use environment variables for secrets**:
+   ```python
+   SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY')
+   ```
+
+4. **Enable HTTPS security** (uncomment in settings.py):
+   ```python
+   SECURE_SSL_REDIRECT = True
+   SESSION_COOKIE_SECURE = True
+   CSRF_COOKIE_SECURE = True
+   ```
+
+5. **Check error logs**:
+   ```bash
+   tail -f logs/django.log
+   tail -f logs/security.log
+   ```
+
+### Common Error Messages
+
+#### "CSRF verification failed"
+**Solutions**:
+- Ensure `{% csrf_token %}` is in all forms
+- Check that cookies are enabled in browser
+- Verify CSRF_COOKIE_HTTPONLY and CSRF_COOKIE_SAMESITE settings
+
+#### "ImproperlyConfigured: The SECRET_KEY setting must not be empty"
+**Solutions**:
+```bash
+# Generate new secret key
+python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
+
+# Set as environment variable
+export DJANGO_SECRET_KEY='your-generated-key'  # Linux/Mac
+set DJANGO_SECRET_KEY=your-generated-key  # Windows
+
+# Or set in settings.py (development only)
+SECRET_KEY = 'your-generated-key'
+```
+
+#### "DisallowedHost at /"
+**Solutions**:
+```python
+# Add your hostname to ALLOWED_HOSTS in settings.py
+ALLOWED_HOSTS = ['localhost', '127.0.0.1', 'your-hostname']
+```
+
+### Performance Issues
+
+#### Issue: Slow page loads with many group members
+**Symptoms**: Group calendar takes a long time to load
+
+**Solutions**:
+- N+1 query optimization already implemented with `.select_related('user')`
+- Consider pagination for very large groups (100+ members)
+- Add database indexes if needed:
+  ```python
+  class Meta:
+      indexes = [
+          models.Index(fields=['user', 'date']),
+      ]
+  ```
+
+### Getting Help
+
+If you encounter an issue not covered here:
+
+1. **Check Django documentation**: https://docs.djangoproject.com/
+2. **Review error logs**: `logs/django.log` and `logs/security.log`
+3. **Enable DEBUG mode** (development only) for detailed error pages
+4. **Check test output**: Run `python manage.py test calendar_app --verbosity=2`
+5. **Review STYLE_GUIDE.md**: For coding standards and patterns
+6. **Review SECURITY_GUIDE.md**: For security-related issues
+
+---
+
 ## Code Attribution
 
 Comments in the codebase indicate:
