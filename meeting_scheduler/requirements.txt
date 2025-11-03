@@ -4,15 +4,29 @@ Django==5.1.13
 # Production Server
 gunicorn==23.0.0
 
-# PostgreSQL Database Adapter
+# PostgreSQL Database Adapter (optional - not needed for SQLite)
 psycopg2-binary==2.9.11
 
 # Static Files & Database URL Parsing
 whitenoise==6.11.0
 dj-database-url==3.0.1
 
+# Environment Variable Management (optional but recommended)
+python-decouple==3.8
+
+# HTML Parsing (for live testing)
+beautifulsoup4==4.12.3
+
+# HTTP Requests (for live testing)
+requests==2.32.3
+
 # Development & Testing
 pylint>=4.0.0
 hypothesis>=6.143.0
 coverage>=7.11.0
 pytest>=8.4.0
+
+# Security Scanning (development only)
+bandit>=1.7.10
+safety>=3.3.2
+semgrep>=1.111.0

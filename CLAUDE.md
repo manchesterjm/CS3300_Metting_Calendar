@@ -932,6 +932,59 @@ If you encounter an issue not covered here:
 
 ---
 
+## Production Deployment
+
+### Deployment Platform
+
+**Recommended Platform**: PythonAnywhere ($5/month Hacker Plan)
+
+This project is configured for deployment on PythonAnywhere, which provides:
+- Built-in SMTP support for email
+- Easy Django deployment
+- Automatic HTTPS
+- SSH access for Git operations
+- SQLite database (suitable for this application)
+
+### Deployment Documentation
+
+See **DEPLOYMENT_PYTHONANYWHERE.md** for complete step-by-step deployment instructions.
+
+**Quick Start**:
+1. Sign up for PythonAnywhere Hacker Plan ($5/month)
+2. Clone repository via SSH
+3. Create virtual environment and install dependencies
+4. Configure WSGI file and production settings
+5. Set up Gmail app password for email
+6. Run migrations and collect static files
+7. Test and go live
+
+**Checklist**: See **DEPLOYMENT_CHECKLIST.md** for a quick reference deployment checklist.
+
+### Custom Domain Setup
+
+To use a custom domain (e.g., syncmeet.com):
+1. Register domain and add to Cloudflare
+2. Configure DNS: CNAME → `your-username.pythonanywhere.com`
+3. Add custom domain in PythonAnywhere Web tab (+$1/month)
+4. Update ALLOWED_HOSTS in production settings
+5. SSL/TLS handled automatically by PythonAnywhere
+
+### Production Configuration Files
+
+- **settings_production.py** - Production Django settings
+- **.env.example** - Template for environment variables
+- **requirements.txt** - Python dependencies for production
+
+### Post-Deployment
+
+After deployment:
+- Test all features (auth, calendar, groups, email)
+- Monitor error logs at `~/logs/django_error.log`
+- Set up database backup schedule
+- Consider implementing meeting proposal feature
+
+---
+
 ## Code Attribution
 
 Comments in the codebase indicate:
