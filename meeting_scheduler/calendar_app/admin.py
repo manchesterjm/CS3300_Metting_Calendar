@@ -51,7 +51,7 @@ class CustomUserAdmin(BaseUserAdmin):
     provides a "Generate Password" button for administrators.
 
     Template Override:
-        change_password_template: Uses custom template with JavaScript
+        change_user_password_template: Uses custom template with JavaScript
         password generation (see templates/admin/auth/user/change_password.html)
 
     Usage:
@@ -63,7 +63,7 @@ class CustomUserAdmin(BaseUserAdmin):
         - Generates 16-character passwords with mixed character types
         - Only accessible to staff users with appropriate permissions
     """
-    change_password_template = 'admin/auth/user/change_password.html'
+    change_user_password_template = 'admin/auth/user/change_password.html'
 
 
 # Re-register User model with our custom admin class
