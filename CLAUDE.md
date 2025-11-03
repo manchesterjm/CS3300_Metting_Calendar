@@ -472,12 +472,18 @@ Free time slots are calculated in 30-minute increments:
 See `PASSWORD_RESET_GUIDE.md` for step-by-step testing instructions.
 
 **Email Configuration (settings.py):**
-- **Current (Windows Development):** `EMAIL_BACKEND = 'calendar_app.email_backend.UnsecureEmailBackend'`
-  - Gmail SMTP (smtp.gmail.com:465) with SSL bypass for Windows certificate issues
-  - Real email sending via manchesterjm@gmail.com
-- **Alternative (Console):** `EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'`
-  - Emails printed to terminal (no real sending)
+- **Current (Development - Default):** `EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'`
+  - Emails printed to terminal/logs (no real email sending)
+  - No SMTP credentials required - secure for testing
+  - Password reset links visible in console output
+  - Recommended for development and testing
+- **Optional (local_settings.py):** Real SMTP email sending
+  - Uncomment SMTP configuration in `meeting_scheduler/local_settings.py`
+  - Configure with environment variables (never hardcode credentials!)
+  - Use for testing actual email delivery
 - **Production:** Use standard SMTP backend with environment variables for credentials
+  - Set `EMAIL_HOST_USER` and `EMAIL_HOST_PASSWORD` environment variables
+  - Never commit credentials to version control
 
 **Password Reset URLs:**
 - Request reset: `/password-reset/`
