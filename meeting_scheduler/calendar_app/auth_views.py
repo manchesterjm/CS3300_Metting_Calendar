@@ -116,9 +116,8 @@ def login_view(request):
                 require_https=request.is_secure()
             ):
                 return redirect(next_url)
-            else:
-                # Default safe redirect if next URL is missing or unsafe
-                return redirect('home')
+            # Default safe redirect if next URL is missing or unsafe
+            return redirect('home')
         messages.error(request, 'Invalid username or password.')
     else:
         form = CustomAuthenticationForm()
@@ -243,5 +242,6 @@ def generate_password_api(request):  # pylint: disable=unused-argument
         password = generate_password(length=16)
         return JsonResponse({'password': password})
     except ValueError as e:
+        # Security: Log detailed error server-side, return generic message to user (CWE-209)
         logger.error('Password generation error: %s', e)
-        return JsonResponse({'error': str(e)}, status=400)
+        return JsonResponse({'error': 'Unable to generate password. Please try again.'}, status=400)
