@@ -683,6 +683,166 @@ class AuthenticationTest(TestCase):
         self.assertContains(response, 'password')
         self.assertIn('form', response.context)
 
+    def test_login_redirect_safe_internal_url(self):
+        """
+        Test CWE-601 Fix: Safe internal redirects are allowed.
+
+        Validates that users can be redirected to internal URLs (same domain)
+        after successful login via the 'next' parameter.
+        """
+        # Create test user
+        User.objects.create_user(username='testuser', password='testpass123')
+
+        # Login with safe internal redirect
+        post_data = {
+            'username': 'testuser',
+            'password': 'testpass123'
+        }
+        response = self.client.post(reverse('login') + '?next=/calendar/', post_data)
+
+        # Should redirect successfully
+        self.assertEqual(response.status_code, 302)
+        # Should redirect to requested internal URL
+        self.assertEqual(response.url, '/calendar/')
+        # User should be authenticated
+        self.assertTrue(response.wsgi_request.user.is_authenticated)
+
+    def test_login_redirect_blocks_external_url(self):
+        """
+        Test CWE-601 Fix: External URLs are blocked (security vulnerability prevention).
+
+        Validates that malicious redirect attempts to external domains are blocked
+        and users are redirected to the safe default (calendar page) instead.
+        This prevents phishing attacks via open redirect.
+        """
+        # Create test user
+        User.objects.create_user(username='testuser', password='testpass123')
+
+        # Attempt login with malicious external redirect
+        post_data = {
+            'username': 'testuser',
+            'password': 'testpass123'
+        }
+        response = self.client.post(
+            reverse('login') + '?next=https://evil.com/phishing',
+            post_data
+        )
+
+        # Should redirect successfully (login succeeds)
+        self.assertEqual(response.status_code, 302)
+        # Should redirect to SAFE DEFAULT (calendar at '/'), not external URL
+        self.assertEqual(response.url, '/')
+        # External URL should be rejected for security
+        self.assertNotIn('evil.com', response.url)
+        # User should still be authenticated (login succeeded, redirect was sanitized)
+        self.assertTrue(response.wsgi_request.user.is_authenticated)
+
+    def test_login_redirect_missing_next_parameter(self):
+        """
+        Test CWE-601 Fix: Default redirect when 'next' parameter is missing.
+
+        Validates that when no 'next' parameter is provided, users are redirected
+        to the safe default location (calendar page at '/').
+        """
+        # Create test user
+        User.objects.create_user(username='testuser', password='testpass123')
+
+        # Login without 'next' parameter
+        post_data = {
+            'username': 'testuser',
+            'password': 'testpass123'
+        }
+        response = self.client.post(reverse('login'), post_data)
+
+        # Should redirect successfully
+        self.assertEqual(response.status_code, 302)
+        # Should redirect to default safe location (calendar at '/')
+        self.assertEqual(response.url, '/')
+        # User should be authenticated
+        self.assertTrue(response.wsgi_request.user.is_authenticated)
+
+    def test_login_redirect_empty_next_parameter(self):
+        """
+        Test CWE-601 Fix: Default redirect when 'next' parameter is empty.
+
+        Validates that empty 'next' parameters are handled safely and users
+        are redirected to the default location.
+        """
+        # Create test user
+        User.objects.create_user(username='testuser', password='testpass123')
+
+        # Login with empty 'next' parameter
+        post_data = {
+            'username': 'testuser',
+            'password': 'testpass123'
+        }
+        response = self.client.post(reverse('login') + '?next=', post_data)
+
+        # Should redirect successfully
+        self.assertEqual(response.status_code, 302)
+        # Should redirect to default safe location (calendar at '/', empty string is unsafe)
+        self.assertEqual(response.url, '/')
+        # User should be authenticated
+        self.assertTrue(response.wsgi_request.user.is_authenticated)
+
+    def test_login_redirect_javascript_url(self):
+        """
+        Test CWE-601 Fix: JavaScript URLs are blocked (XSS prevention).
+
+        Validates that javascript: protocol URLs in 'next' parameter are blocked
+        to prevent XSS attacks via redirect.
+        """
+        # Create test user
+        User.objects.create_user(username='testuser', password='testpass123')
+
+        # Attempt login with javascript: URL
+        post_data = {
+            'username': 'testuser',
+            'password': 'testpass123'
+        }
+        response = self.client.post(
+            reverse('login') + '?next=javascript:alert(document.cookie)',
+            post_data
+        )
+
+        # Should redirect successfully (login succeeds)
+        self.assertEqual(response.status_code, 302)
+        # Should redirect to SAFE DEFAULT (calendar at '/'), not javascript: URL
+        self.assertEqual(response.url, '/')
+        # JavaScript URL should be completely rejected
+        self.assertNotIn('javascript:', response.url)
+        # User should still be authenticated
+        self.assertTrue(response.wsgi_request.user.is_authenticated)
+
+    def test_login_redirect_protocol_relative_external_url(self):
+        """
+        Test CWE-601 Fix: Protocol-relative external URLs are blocked.
+
+        Validates that protocol-relative URLs (//evil.com) attempting to
+        redirect to external domains are blocked.
+        """
+        # Create test user
+        User.objects.create_user(username='testuser', password='testpass123')
+
+        # Attempt login with protocol-relative external URL
+        post_data = {
+            'username': 'testuser',
+            'password': 'testpass123'
+        }
+        response = self.client.post(
+            reverse('login') + '?next=//evil.com/phishing',
+            post_data
+        )
+
+        # Should redirect successfully (login succeeds)
+        self.assertEqual(response.status_code, 302)
+        # Should redirect to SAFE DEFAULT (calendar at '/'), not external URL
+        self.assertEqual(response.url, '/')
+        # External domain should be rejected
+        self.assertNotIn('evil.com', response.url)
+        # User should still be authenticated
+        self.assertTrue(response.wsgi_request.user.is_authenticated)
+
 
 class GroupModelTest(TestCase):
     """Tests for the Group model"""
