@@ -43,15 +43,15 @@ jobs:
       fail-fast: false
       matrix:
         include:
-        # Analyze Python (primary codebase language)
+        # Analyze all detected languages - do not disable security checks
         - language: python
           build-mode: none
-        # Analyze JavaScript/TypeScript (service-worker.js is security-critical)
-        # Service workers intercept network requests and must be security scanned
         - language: javascript-typescript
           build-mode: none
-        # Note: Removed 'actions' language - minimal GitHub Actions code
-        # Python and JS/TS are the security-relevant languages for this project
+        - language: actions
+          build-mode: none
+        # If CodeQL fails, investigate and fix the ROOT CAUSE
+        # Do not disable security scanning to make tests pass
         # CodeQL supports the following values keywords for 'language': 'actions', 'c-cpp', 'csharp', 'go', 'java-kotlin', 'javascript-typescript', 'python', 'ruby', 'rust', 'swift'
         # Use `c-cpp` to analyze code written in C, C++ or both
         # Use 'java-kotlin' to analyze code written in Java, Kotlin or both
