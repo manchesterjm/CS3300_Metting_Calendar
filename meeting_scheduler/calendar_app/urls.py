@@ -2,10 +2,10 @@
 URL configuration for the calendar application.
 
 This module defines URL patterns for routing requests to the calendar
-application views, including authentication and password reset endpoints.
+application views, including authentication, groups, and meeting proposals.
 
-Version: 2.1 (Join Code Support)
-Last Updated: 2025-11-23
+Version: 3.0 (Join Codes + Recurring + Meeting Proposals)
+Last Updated: 2025-11-24
 """
 from django.urls import path
 from django.contrib.auth import views as auth_views
@@ -25,6 +25,11 @@ from .group_views import (
     join_group_view,
     generate_join_code_view,
     toggle_join_code_view
+)
+from .proposal_views import (
+    create_proposal_view,
+    proposal_list_view,
+    respond_to_proposal_view
 )
 
 urlpatterns = [
@@ -51,6 +56,12 @@ urlpatterns = [
     path('groups/<int:group_id>/delete/', group_delete_view, name='group_delete'),
     path('groups/<int:group_id>/generate-join-code/', generate_join_code_view, name='generate_join_code'),
     path('groups/<int:group_id>/toggle-join-code/', toggle_join_code_view, name='toggle_join_code'),
+
+    # Meeting Proposal URLs
+    path('groups/<int:group_id>/proposals/', proposal_list_view, name='proposal_list'),
+    path('groups/<int:group_id>/proposals/create/', create_proposal_view, name='create_proposal'),
+    path('proposals/<int:proposal_id>/respond/<str:response_type>/',
+         respond_to_proposal_view, name='respond_to_proposal'),
 
     # Password reset URLs
     path('password-reset/',

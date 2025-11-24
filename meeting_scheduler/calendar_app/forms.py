@@ -13,6 +13,7 @@ Forms:
     - GroupUnavailabilityForm: Group calendar entries
     - GroupDeleteSelectedForm: Bulk delete group entries
     - JoinGroupForm: Join a group using a join code
+    - MeetingProposalForm: Create meeting proposals
 
 Security Note: All forms use Django's built-in CSRF protection and input sanitization.
 """
@@ -20,7 +21,8 @@ import datetime
 
 from django import forms
 from django.contrib.auth.models import User
-from .models import Unavailability, Group, GroupUnavailability
+from django.utils import timezone
+from .models import Unavailability, Group, GroupUnavailability, MeetingProposal
 
 
 class BaseDescriptionForm(forms.Form):
@@ -519,3 +521,88 @@ class JoinGroupForm(forms.Form):
         self.group = group
 
         return code
+
+
+class MeetingProposalForm(forms.ModelForm):
+    """
+    Form for creating a meeting proposal.
+
+    This form allows users to propose a meeting time for their group.
+    All group members must accept the proposal for it to be scheduled.
+
+    Attributes:
+        title: CharField for the meeting title.
+        description: TextField for optional meeting details.
+        meeting_datetime: DateTimeField for the proposed meeting time.
+        duration_minutes: ChoiceField for meeting duration (30, 60, or 120 minutes).
+    """
+
+    class Meta:
+        model = MeetingProposal
+        fields = ['title', 'description', 'meeting_datetime', 'duration_minutes']
+        widgets = {
+            'title': forms.TextInput(attrs={
+                'placeholder': 'Enter meeting title',
+                'maxlength': 200,
+                'class': 'form-input'
+            }),
+            'description': forms.Textarea(attrs={
+                'placeholder': 'Optional: Add meeting agenda or details',
+                'rows': 3,
+                'class': 'form-input'
+            }),
+            'meeting_datetime': forms.DateTimeInput(attrs={
+                'type': 'datetime-local',
+                'class': 'form-input'
+            }),
+            'duration_minutes': forms.Select(attrs={
+                'class': 'form-input'
+            })
+        }
+
+    def clean_meeting_datetime(self):
+        """
+        Validate that the meeting datetime is in the future.
+
+        Returns:
+            datetime: The cleaned meeting datetime.
+
+        Raises:
+            ValidationError: If the datetime is in the past.
+        """
+        meeting_datetime = self.cleaned_data.get('meeting_datetime')
+        if meeting_datetime:
+            if meeting_datetime < timezone.now():
+                raise forms.ValidationError('Meeting time must be in the future.')
+        return meeting_datetime
+
+    def clean_title(self):
+        """
+        Validate the title field.
+
+        Returns:
+            str: The cleaned and stripped title.
+
+        Raises:
+            ValidationError: If title is empty or too long.
+        """
+        title = self.cleaned_data.get('title', '')
+        if title:
+            title = title.strip()
+            if not title:
+                raise forms.ValidationError('Title cannot be empty.')
+            if len(title) > 200:
+                raise forms.ValidationError('Title must be 200 characters or less.')
+        return title
+
+    def clean_description(self):
+        """
+        Validate the description field.
+
+        Returns:
+            str: The cleaned and stripped description.
+        """
+        description = self.cleaned_data.get('description', '')
+        if description:
+            description = description.strip()
+        return description
