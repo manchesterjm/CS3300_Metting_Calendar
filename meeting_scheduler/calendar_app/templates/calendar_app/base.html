@@ -101,6 +101,24 @@
             background-color: #c0392b;
         }
 
+        /* Logout form styling */
+        .navbar-nav form {
+            margin: 0;
+            padding: 0;
+            background: none;
+            border: none;
+            display: inline;
+        }
+
+        /* Logout button specific styling */
+        .navbar-nav .logout-btn {
+            background-color: #e67e22; /* Orange to stand out */
+        }
+
+        .navbar-nav .logout-btn:hover {
+            background-color: #d35400; /* Darker orange on hover */
+        }
+
         .navbar-user {
             color: #ecf0f1;
             margin-right: 15px;
@@ -150,7 +168,7 @@
         /* Mobile Responsive */
         @media (max-width: 768px) {
             body {
-                padding-top: 120px; /* More space for wrapped navbar */
+                padding-top: 150px; /* More space for wrapped navbar with extra button */
             }
 
             .navbar {
@@ -166,7 +184,8 @@
 
             .navbar-nav {
                 width: 100%;
-                justify-content: center;
+                justify-content: flex-end; /* Right-justify buttons */
+                flex-wrap: wrap;
             }
 
             .navbar-nav a,
@@ -177,21 +196,25 @@
 
             .navbar-user {
                 width: 100%;
-                text-align: center;
+                text-align: right;
                 margin: 5px 0;
             }
         }
 
         @media (max-width: 480px) {
+            body {
+                padding-top: 160px; /* Extra space for smaller screens */
+            }
+
             .navbar-nav {
-                flex-direction: column;
-                width: 100%;
+                justify-content: flex-end; /* Keep right-justified */
+                gap: 5px;
             }
 
             .navbar-nav a,
             .navbar-nav button {
-                width: 100%;
-                text-align: center;
+                font-size: 11px;
+                padding: 5px 8px;
             }
         }
 
@@ -201,21 +224,23 @@
 <body>
     <!-- Navigation Bar -->
     <nav class="navbar">
-        <a href="{% url 'calendar' %}" class="navbar-brand">Meeting Calendar</a>
+        <a href="{% url 'home' %}" class="navbar-brand">Meeting Scheduler</a>
 
         <div class="navbar-nav">
             {% if user.is_authenticated %}
                 <span class="navbar-user">Welcome, {{ user.username }}!</span>
-                <a href="{% url 'account' %}">My Account</a>
+                <a href="{% url 'home' %}">Home</a>
                 <a href="{% url 'group_list' %}">My Groups</a>
+                <a href="{% url 'account' %}">My Account</a>
                 {% if user.is_staff %}
-                    <a href="/admin/" class="admin-btn">Admin Panel</a>
+                    <a href="{% url 'admin:index' %}" class="admin-btn">Admin Panel</a>
                 {% endif %}
-                <form method="post" action="{% url 'logout' %}" style="margin: 0;">
+                <form method="post" action="{% url 'logout' %}">
                     {% csrf_token %}
-                    <button type="submit">Logout</button>
+                    <button type="submit" class="logout-btn">Logout</button>
                 </form>
             {% else %}
+                <a href="{% url 'home' %}">Home</a>
                 <a href="{% url 'login' %}">Login</a>
                 <a href="{% url 'register' %}">Register</a>
             {% endif %}

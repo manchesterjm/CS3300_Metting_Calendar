@@ -1,0 +1,175 @@
+{% extends "calendar_app/base.html" %}
+
+{% block title %}Home - Meeting Scheduler{% endblock %}
+
+{% block extra_style %}
+.hero-section {
+    text-align: center;
+    padding: 60px 20px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 12px;
+    margin-bottom: 40px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+}
+
+.hero-section h1 {
+    font-size: 3em;
+    margin-bottom: 15px;
+    font-weight: 700;
+}
+
+.hero-section p {
+    font-size: 1.3em;
+    opacity: 0.95;
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+.features-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 30px;
+    margin: 40px 0;
+}
+
+.feature-card {
+    background: white;
+    padding: 35px;
+    border-radius: 12px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+    transition: transform 0.3s, box-shadow 0.3s;
+    text-align: center;
+}
+
+.feature-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.12);
+}
+
+.feature-icon {
+    font-size: 3.5em;
+    margin-bottom: 15px;
+}
+
+.feature-card h3 {
+    color: #2c3e50;
+    font-size: 1.5em;
+    margin-bottom: 12px;
+}
+
+.feature-card p {
+    color: #7f8c8d;
+    font-size: 1em;
+    line-height: 1.6;
+    margin-bottom: 20px;
+}
+
+.btn-primary {
+    display: inline-block;
+    padding: 12px 30px;
+    background-color: #1abc9c;
+    color: white;
+    text-decoration: none;
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 1em;
+    transition: background-color 0.3s, transform 0.2s;
+}
+
+.btn-primary:hover {
+    background-color: #16a085;
+    transform: scale(1.05);
+}
+
+.btn-secondary {
+    display: inline-block;
+    padding: 12px 30px;
+    background-color: #3498db;
+    color: white;
+    text-decoration: none;
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 1em;
+    transition: background-color 0.3s, transform 0.2s;
+}
+
+.btn-secondary:hover {
+    background-color: #2980b9;
+    transform: scale(1.05);
+}
+
+.cta-section {
+    text-align: center;
+    padding: 50px 20px;
+    background-color: #ecf0f1;
+    border-radius: 12px;
+    margin-top: 40px;
+}
+
+.cta-section h2 {
+    color: #2c3e50;
+    font-size: 2em;
+    margin-bottom: 20px;
+}
+
+.cta-section p {
+    color: #7f8c8d;
+    font-size: 1.1em;
+    margin-bottom: 30px;
+}
+
+@media (max-width: 768px) {
+    .hero-section h1 {
+        font-size: 2em;
+    }
+
+    .hero-section p {
+        font-size: 1.1em;
+    }
+
+    .features-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .feature-card {
+        padding: 25px;
+    }
+}
+{% endblock %}
+
+{% block content %}
+    <div class="hero-section">
+        <h1>📅 Meeting Scheduler</h1>
+        <p>Coordinate group meetings effortlessly. Find the perfect time when everyone is available.</p>
+    </div>
+
+    <div class="features-grid">
+        <div class="feature-card">
+            <div class="feature-icon">👥</div>
+            <h3>Group Calendars</h3>
+            <p>Create groups and share availability with team members. See when everyone is free at a glance.</p>
+            <a href="{% url 'group_list' %}" class="btn-primary">View My Groups</a>
+        </div>
+
+        <div class="feature-card">
+            <div class="feature-icon">➕</div>
+            <h3>Create New Group</h3>
+            <p>Start a new group for your team, project, or event. Add members and start coordinating schedules.</p>
+            <a href="{% url 'group_create' %}" class="btn-secondary">Create Group</a>
+        </div>
+
+        <div class="feature-card">
+            <div class="feature-icon">⚙️</div>
+            <h3>Manage Account</h3>
+            <p>Update your profile, change password, and customize your account settings.</p>
+            <a href="{% url 'account' %}" class="btn-primary">My Account</a>
+        </div>
+    </div>
+
+    <div class="cta-section">
+        <h2>How It Works</h2>
+        <p><strong>1.</strong> Create or join a group  →  <strong>2.</strong> Add your unavailable times  →  <strong>3.</strong> Find common free slots</p>
+        <a href="{% url 'group_list' %}" class="btn-primary" style="font-size: 1.1em; padding: 15px 40px;">Get Started</a>
+    </div>
+{% endblock %}

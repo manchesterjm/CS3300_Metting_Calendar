@@ -22,7 +22,37 @@ from django.contrib.auth.models import User
 from .models import Unavailability, Group, GroupUnavailability
 
 
-class UnavailabilityForm(forms.ModelForm):
+class BaseDescriptionForm(forms.Form):
+    """
+    Base form class for forms that include a description field.
+
+    Provides common validation logic for description fields to avoid code duplication
+    between UnavailabilityForm and GroupUnavailabilityForm.
+    """
+
+    def clean_description(self):
+        """
+        Validate the description field.
+
+        Ensures description is not too long and doesn't contain dangerous characters.
+
+        Returns:
+            str: The cleaned and stripped description.
+
+        Raises:
+            ValidationError: If description exceeds 200 characters or contains invalid data.
+        """
+        description = self.cleaned_data.get('description', '')
+        if description:
+            # Strip whitespace
+            description = description.strip()
+            # Validate length (redundant with maxlength, but server-side is critical)
+            if len(description) > 200:
+                raise forms.ValidationError('Description must be 200 characters or less.')
+        return description
+
+
+class UnavailabilityForm(BaseDescriptionForm, forms.ModelForm):  # pylint: disable=too-many-ancestors
     """
     Form for creating and displaying unavailability entries.
 
@@ -60,17 +90,22 @@ class UnavailabilityForm(forms.ModelForm):
 
     class Meta:
         model = Unavailability
-        fields = ['date', 'start_time', 'end_time']
+        fields = ['date', 'start_time', 'end_time', 'description']
         widgets = {
             'date': forms.DateInput(
                 attrs={'type': 'date'}
             ),
             'start_time': forms.TimeInput(
-                attrs={'type': 'time', 'value': '00:00'}
+                attrs={'type': 'time'}
             ),
             'end_time': forms.TimeInput(
-                attrs={'type': 'time', 'value': '00:00'}
+                attrs={'type': 'time'}
             ),
+            'description': forms.TextInput(attrs={
+                'placeholder': 'Optional: Add note (e.g., "Doctor appointment", "Meeting")',
+                'maxlength': 200,
+                'class': 'form-input'
+            })
         }
         initial = {
             # if a static initial date is required, place it here and then comment out
@@ -95,6 +130,9 @@ class UnavailabilityForm(forms.ModelForm):
                 submitting a new unavailability entry.
         """
         cleaned_data = super().clean()
+        start_time = cleaned_data.get('start_time')
+        end_time = cleaned_data.get('end_time')
+
         # Only perform default-check validation when submitting new unavailability
         if self.submit_type == 'submit_unavailability':
             # Check against fake default values to ensure user changed inputs
@@ -102,8 +140,7 @@ class UnavailabilityForm(forms.ModelForm):
             fake_default_date = datetime.date(2025, 1, 1)
             fake_default_time = datetime.time(0, 0)
             date = cleaned_data.get('date')
-            start_time = cleaned_data.get('start_time')
-            end_time = cleaned_data.get('end_time')
+
             # Validate that user changed date and times from defaults
             if date == fake_default_date:
                 self.add_error('date', "Please select a valid date.")
@@ -111,6 +148,11 @@ class UnavailabilityForm(forms.ModelForm):
                 self.add_error('start_time', "Please select a valid start time.")
             if end_time == fake_default_time:
                 self.add_error('end_time', "Please select a valid end time.")
+
+            # Validate time range (only when submitting new unavailability)
+            if start_time and end_time and start_time >= end_time:
+                self.add_error('end_time', "End time must be after start time.")
+
         return cleaned_data
 
 
@@ -204,7 +246,7 @@ class AddMemberForm(forms.Form):
         return username
 
 
-class GroupUnavailabilityForm(forms.ModelForm):
+class GroupUnavailabilityForm(BaseDescriptionForm, forms.ModelForm):  # pylint: disable=too-many-ancestors
     """
     Form for creating group unavailability entries.
 
@@ -239,8 +281,8 @@ class GroupUnavailabilityForm(forms.ModelForm):
         fields = ['date', 'start_time', 'end_time', 'description']
         widgets = {
             'date': forms.DateInput(attrs={'type': 'date'}),
-            'start_time': forms.TimeInput(attrs={'type': 'time', 'value': '00:00'}),
-            'end_time': forms.TimeInput(attrs={'type': 'time', 'value': '00:00'}),
+            'start_time': forms.TimeInput(attrs={'type': 'time'}),
+            'end_time': forms.TimeInput(attrs={'type': 'time'}),
             'description': forms.TextInput(attrs={
                 'placeholder': 'Optional: Add description (e.g., "Team meeting")',
                 'maxlength': 200,

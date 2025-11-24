@@ -29,6 +29,7 @@ class Unavailability(models.Model):
         date: The date of the unavailability (YYYY-MM-DD format).
         start_time: The beginning time of the unavailable period (HH:MM format).
         end_time: The ending time of the unavailable period (HH:MM format).
+        description: Optional description of the unavailability (e.g., "Doctor appointment").
     """
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -38,6 +39,7 @@ class Unavailability(models.Model):
     date = models.DateField()
     start_time = models.TimeField()
     end_time = models.TimeField()
+    description = models.CharField(max_length=200, blank=True, default='')
 
     class Meta:
         verbose_name_plural = "Unavailabilities"
@@ -191,7 +193,7 @@ class GroupUnavailability(models.Model):
     date = models.DateField()
     start_time = models.TimeField()
     end_time = models.TimeField()
-    description = models.CharField(max_length=200, blank=True)
+    description = models.CharField(max_length=200, blank=True, default='')
 
     class Meta:
         verbose_name_plural = "Group Unavailabilities"

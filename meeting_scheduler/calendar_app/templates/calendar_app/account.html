@@ -185,5 +185,12 @@
             <a href="{% url 'calendar' %}" class="btn-secondary">Cancel</a>
         </form>
     </div>
+
+    <!-- Password Management -->
+    <div class="account-form" style="margin-top: 30px;">
+        <h3>Password Management</h3>
+        <p style="color: #7f8c8d; margin-bottom: 20px;">Change your account password to maintain security.</p>
+        <a href="{% url 'change_password' %}" class="btn-primary" style="text-decoration: none; display: inline-block; text-align: center;">Change Password</a>
+    </div>
 </div>
 {% endblock %}

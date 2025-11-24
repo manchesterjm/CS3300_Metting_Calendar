@@ -71,6 +71,13 @@ ul {
 
 ul li {
     padding: 5px 0;
+    white-space: nowrap;
+    overflow-x: auto;
+}
+
+ul li label {
+    white-space: nowrap;
+    display: inline;
 }
 
 @media (max-width: 768px) {
@@ -94,11 +101,11 @@ ul li {
 {% block content %}
     <h1>My Meeting Calendar</h1>
 
-    <form method="post">
+    <form method="post" id="calendarForm" novalidate>
         {% csrf_token %}
         {{ form.as_p }} <!-- as I understand it, this links the buttons below to the form in forms.py -->
 	<div>
-        	<button type="submit" name="submit_unavailability">Submit Unavailability</button>
+        	<button type="submit" name="submit_unavailability">Add Unavailability</button>
         </div>
 	<div>
 		<button type="submit" name="show_free_times">Show Free Times</button>
@@ -108,27 +115,52 @@ ul li {
 	</div>
     </form>
 
-    {% if free_times %}
+    {% if free_times is not None %}
 	<hr> <!-- adds a solid line -->
-        <h2>Free Times on {{ form.data.date }}:</h2>
-        {% if free_times %} <!-- starts an if then else -->
+        <h2 id="freeTimesResults" style="color: #1abc9c;">Free Times for {{ form.initial.date|date:"M d, Y" }}:</h2>
+        {% if free_times %}
             <ul>
                 {% for time in free_times %} <!-- starts a for loop -->
                     <li>{{ time }}</li> <!-- adds times to indiviual lines -->
                 {% endfor %} <!-- ends a for loop -->
             </ul>
-        {% else %} <!-- else -->
-            <p>No free time slots available.</p>
-        {% endif %} <!-- end if -->
+        {% else %}
+            <p style="color: #27ae60; font-weight: bold; padding: 15px; background-color: #e8f8f5; border-radius: 5px;">
+                🎉 Great news! You have no unavailability entries for this date. All time slots (8:00 AM - 8:00 PM) are free!
+            </p>
+        {% endif %}
     {% endif %}
 
     {% if form_delete.fields.entry_ids.choices %} <!-- is there anything in the database, if so, display them -->
         <hr>
-        <h2>Delete Selected Entries</h2>
+        <h2 id="entriesResults" style="color: #1abc9c;">Your Last 5 Entries</h2>
         <form method="post"> <!-- this is going to get the form from the forms.py -->
             {% csrf_token %}
             {{ form_delete.entry_ids }} <!-- the form in forms.py does the work here, but it checks to see what list items are checked and then deletes them -->
             <button type="submit" name="delete_selected">Delete Selected</button> <!-- button to submit the entries to the form -->
         </form>
     {% endif %}
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+// Scroll to results after form submission
+document.addEventListener('DOMContentLoaded', function() {
+    // Check if free times results exist and scroll to them
+    const freeTimesResults = document.getElementById('freeTimesResults');
+    if (freeTimesResults) {
+        setTimeout(function() {
+            freeTimesResults.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 100);
+    }
+
+    // Check if entries results exist and scroll to them
+    const entriesResults = document.getElementById('entriesResults');
+    if (entriesResults && !freeTimesResults) {
+        setTimeout(function() {
+            entriesResults.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 100);
+    }
+});
+</script>
 {% endblock %}

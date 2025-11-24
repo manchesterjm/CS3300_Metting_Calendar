@@ -20,6 +20,26 @@ from django.contrib.auth.decorators import login_required
 from django.shortcuts import render, redirect
 from .forms import UnavailabilityForm, DeleteSelectedForm
 from .models import Unavailability
+from .utils import calculate_free_time_slots
+
+
+@login_required
+def home_view(request):
+    """
+    Landing page view for authenticated users.
+
+    Displays a user-friendly dashboard with quick access to main features:
+    - View/manage groups
+    - Create new groups
+    - Access account settings
+
+    Args:
+        request: HttpRequest object containing metadata about the request.
+
+    Returns:
+        HttpResponse: Rendered home template.
+    """
+    return render(request, 'calendar_app/home.html')
 
 
 @login_required
@@ -58,47 +78,49 @@ def calendar_view(request):
                 new_record = form.save(commit=False)
                 new_record.user = request.user
                 new_record.save()
-                messages.success(
-                request,
-                f'New Record Made: <br>{new_record.date} from '
-                f'{new_record.start_time} to {new_record.end_time}'
-                )
+                # Success message with description if provided
+                if new_record.description:
+                    messages.success(
+                        request,
+                        f'New Record Made: <br>{new_record.date} from '
+                        f'{new_record.start_time} to {new_record.end_time} - {new_record.description}'
+                    )
+                else:
+                    messages.success(
+                        request,
+                        f'New Record Made: <br>{new_record.date} from '
+                        f'{new_record.start_time} to {new_record.end_time}'
+                    )
                 return redirect('calendar')  # return to calendar initial view
             # and again, I have not been able to make it error in such a way
             # that this gets displayed now
             print("Unavailability Form Errors:", form.errors)
 
         elif 'show_free_times' in request.POST:
-            form = UnavailabilityForm(request.POST)
-            # it is always good to check if the form is valid.  If not, the DB
-            # did corrupt a few times, which is why I needed to add this form to
-            # delete past entries.  It now serves to delete a bad entry that a user
-            # might make
-            if form.is_valid():
-                data = form.cleaned_data
-                selected_date = data['date']
-                unavail_list = Unavailability.objects.filter(user=request.user, date=selected_date)
+            # For showing free times in personal calendar, check only current user's unavailability
+            # (Group calendars show all members - see group_calendar_view in group_views.py)
+            selected_date_str = request.POST.get('date')
 
-                start_dt = datetime.datetime.combine(selected_date, datetime.time(8, 0))
-                end_dt = datetime.datetime.combine(selected_date, datetime.time(20, 0))
-                all_slots = []
-                while start_dt < end_dt:
-                    all_slots.append(start_dt.time())
-                    start_dt += datetime.timedelta(minutes=30)
-                # start date and time display
-                taken_slots = set()
-                for unavail in unavail_list:
-                    current_slot = datetime.datetime.combine(selected_date, unavail.start_time)
-                    unavail_end = datetime.datetime.combine(selected_date, unavail.end_time)
-                    while current_slot < unavail_end:
-                        taken_slots.add(current_slot.time())
-                        current_slot += datetime.timedelta(minutes=30)
-                # actual print out
-                free_times = [slot.strftime("%H:%M") for slot in all_slots
-                              if slot not in taken_slots]
-            # I didn't do this to start and I found out that it didn't work
-            # if the database corrupted
-            print("Show Free Times Form Errors:", form.errors)
+            # Validate that date is provided
+            if not selected_date_str:
+                messages.error(request, 'Date is required.')
+                form = UnavailabilityForm()
+            else:
+                try:
+                    selected_date = datetime.datetime.strptime(selected_date_str, '%Y-%m-%d').date()
+                    # Check only current user's unavailability for personal calendar privacy
+                    unavail_list = Unavailability.objects.filter(date=selected_date, user=request.user)
+
+                    # Calculate free time slots using utility function
+                    free_times = calculate_free_time_slots(selected_date, unavail_list)
+
+                    # Recreate form with the selected date for display
+                    form = UnavailabilityForm(initial={'date': selected_date})
+                except (ValueError, TypeError):
+                    # If date parsing fails, show error with format hint
+                    messages.error(request, 'Invalid date format. Please use YYYY-MM-DD.')
+                    form = UnavailabilityForm()
+
             form_delete = DeleteSelectedForm()  # Initialize an empty deletion form for display
 
         # show last five entries in the database
@@ -107,7 +129,11 @@ def calendar_view(request):
             last_five = Unavailability.objects.filter(user=request.user).order_by('-id')[:5]
             choices = []
             for entry in last_five:  # start the print out here
-                label = f"{entry.date} from {entry.start_time} to {entry.end_time}"
+                # Format: Date from Time to Time - Description (if provided)
+                if entry.description:
+                    label = f"{entry.date} from {entry.start_time} to {entry.end_time} - {entry.description}"
+                else:
+                    label = f"{entry.date} from {entry.start_time} to {entry.end_time}"
                 choices.append((entry.id, label))
             form_delete = DeleteSelectedForm()
             # what entries are we going to delete, entry ids are used to find
@@ -120,7 +146,11 @@ def calendar_view(request):
             last_five = Unavailability.objects.filter(user=request.user).order_by('-id')[:5]
             choices = []  # list/array of the entries we selected
             for entry in last_five:
-                label = f"{entry.date} from {entry.start_time} to {entry.end_time}"
+                # Format: Date from Time to Time - Description (if provided)
+                if entry.description:
+                    label = f"{entry.date} from {entry.start_time} to {entry.end_time} - {entry.description}"
+                else:
+                    label = f"{entry.date} from {entry.start_time} to {entry.end_time}"
                 choices.append((entry.id, label))
 
             form_delete = DeleteSelectedForm(request.POST)

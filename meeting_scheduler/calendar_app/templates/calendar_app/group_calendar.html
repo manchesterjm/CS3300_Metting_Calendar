@@ -103,6 +103,13 @@ ul {
 
 ul li {
     padding: 5px 0;
+    white-space: nowrap;
+    overflow-x: auto;
+}
+
+ul li label {
+    white-space: nowrap;
+    display: inline;
 }
 
 .info-box {
@@ -150,28 +157,25 @@ ul li {
     <a href="{% url 'group_detail' group.id %}" class="back-link">Back to Group Details</a>
 
     <div class="info-box">
-        <p><strong>Note:</strong> All group members can add unavailability entries.</p>
+        <p><strong>Read-Only View:</strong> This group calendar shows common free times for all members.</p>
+        <p>To add or manage your unavailability, go to your <a href="{% url 'calendar' %}" style="color: #3498db; font-weight: bold;">Personal Calendar</a>.</p>
         <p>Free times shown are when ALL group members are available.</p>
-        <p>You can only delete entries you created.</p>
     </div>
 
-    <form method="post">
+    <form method="post" novalidate>
         {% csrf_token %}
-        {{ form.as_p }}
-        <div>
-            <button type="submit" name="submit_unavailability">Submit Unavailability</button>
-        </div>
+        <p>
+            <label for="id_date">Select a date:</label>
+            <input type="date" name="date" id="id_date" value="{% if selected_date %}{{ selected_date|date:'Y-m-d' }}{% else %}{{ today|date:'Y-m-d' }}{% endif %}" required>
+        </p>
         <div>
             <button type="submit" name="show_free_times">Show Free Times</button>
         </div>
-        <div>
-            <button type="submit" name="show_last_five">Show Last 5 Entries</button>
-        </div>
     </form>
 
-    {% if free_times %}
+    {% if free_times is not None %}
         <hr>
-        <h2>Free Times on {{ form.data.date }}:</h2>
+        <h2 id="freeTimesResults" style="color: #1abc9c;">Free Times for {{ selected_date|date:"M d, Y" }}:</h2>
         {% if free_times %}
             <ul>
                 {% for time in free_times %}
@@ -179,20 +183,24 @@ ul li {
                 {% endfor %}
             </ul>
         {% else %}
-            <p>No free time slots available.</p>
+            <p style="color: #27ae60; font-weight: bold; padding: 15px; background-color: #e8f8f5; border-radius: 5px;">
+                🎉 Excellent! All group members are available on this date. All time slots (8:00 AM - 8:00 PM) are free for scheduling!
+            </p>
         {% endif %}
     {% endif %}
+{% endblock %}
 
-    {% if form_delete.fields.entry_ids.choices %}
-        <hr>
-        <h2>Delete Selected Entries</h2>
-        <p style="color: #7f8c8d; font-size: 14px; margin-bottom: 10px;">
-            Note: You can only delete your own entries.
-        </p>
-        <form method="post">
-            {% csrf_token %}
-            {{ form_delete.entry_ids }}
-            <button type="submit" name="delete_selected">Delete Selected</button>
-        </form>
-    {% endif %}
+{% block extra_scripts %}
+<script>
+// Scroll to results after form submission
+document.addEventListener('DOMContentLoaded', function() {
+    // Check if free times results exist and scroll to them
+    const freeTimesResults = document.getElementById('freeTimesResults');
+    if (freeTimesResults) {
+        setTimeout(function() {
+            freeTimesResults.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 100);
+    }
+});
+</script>
 {% endblock %}

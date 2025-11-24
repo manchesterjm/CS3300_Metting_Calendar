@@ -8,6 +8,7 @@ Test Count: 9 fuzz tests (~350 generated cases)
 Strategy: Property-based testing with constrained random generation
 Last Updated: 2025-01-11
 """
+# pylint: disable=too-many-arguments,too-many-positional-arguments,broad-exception-caught
 import datetime
 from django.test import Client
 from django.urls import reverse
@@ -132,11 +133,13 @@ class FuzzUnavailabilityFormTest(HypothesisTestCase):
             data=form_data,
             submit_type='submit_unavailability'
         )
-        # If using midnight times, should fail validation
-        if start_time == datetime.time(0, 0) or end_time == datetime.time(0, 0):
+        # Form should fail validation if:
+        # 1. Using midnight times (default values)
+        # 2. start_time >= end_time (invalid time range)
+        if start_time == datetime.time(0, 0) or end_time == datetime.time(0, 0) or start_time >= end_time:
             self.assertFalse(form.is_valid())
         else:
-            # Non-default times should pass
+            # Non-default times with valid range should pass
             self.assertTrue(form.is_valid())
 
 

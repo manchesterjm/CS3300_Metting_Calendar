@@ -2,15 +2,19 @@
 
 ## Current Configuration ✅
 
-**Email Backend:** Console (Development Mode)
-- Emails are printed to the terminal/console
-- No external SMTP server needed
-- Perfect for local development and demos
-- Already configured and working
+**Email Backend:** Gmail SMTP (with Windows SSL bypass for development)
+- Real email sending via Gmail SMTP (smtp.gmail.com:465)
+- Uses custom UnsecureEmailBackend for Windows SSL certificate issues
+- Emails sent to actual email addresses
+- Password reset links work in real inboxes
+- **Note**: Windows development only - production uses standard Django email backend
+
+**Alternative Configuration Available:**
+- Console backend available for testing without email (see section below)
 
 ## How to Test Password Reset
 
-### Method 1: Test with Existing User
+### Method 1: Test with Real Email (Gmail SMTP)
 
 1. **Start the development server:**
    ```bash
@@ -23,37 +27,35 @@
 
 3. **Click "Forgot your password?"**
 
-4. **Enter any email address** (doesn't need to be real):
-   - Enter: `test@example.com` (or any email)
+4. **Enter a real email address** (your email or test email):
+   - Enter: `your-email@gmail.com` (must be real)
    - Click "Send Reset Instructions"
 
-5. **Check your terminal/console** where the server is running:
-   - You'll see the password reset email printed
+5. **Check your email inbox:**
+   - Email sent from: manchesterjm@gmail.com
+   - Subject: "Password reset on 127.0.0.1:8000"
    - Look for a section like:
    ```
-   Content-Type: text/plain; charset="utf-8"
-   MIME-Version: 1.0
-   Content-Transfer-Encoding: 7bit
-   Subject: Password reset on localhost:8000
-   From: noreply@meetingcalendar.local
-   To: test@example.com
+   From: manchesterjm@gmail.com
+   To: your-email@gmail.com
+   Subject: Password reset on 127.0.0.1:8000
 
    You're receiving this email because you requested a password reset...
 
    Please go to the following page and choose a new password:
 
-   http://localhost:8000/password-reset-confirm/...
+   http://127.0.0.1:8000/password-reset-confirm/...
+
+   Your username, in case you've forgotten: yourusername
    ```
 
-6. **Copy the password reset link** from the terminal
+6. **Click the password reset link** in your email
 
-7. **Paste the link in your browser**
+7. **Enter your new password** (twice)
 
-8. **Enter your new password** (twice)
+8. **Click "Change My Password"**
 
-9. **Click "Change My Password"**
-
-10. **Login with your new password!**
+9. **Login with your new password!**
 
 ### Method 2: Test with Default Admin
 
@@ -69,78 +71,121 @@ Then follow steps 2-10 above, using `admin@meetingcalendar.local` as the email.
 
 ### Show the Feature Works:
 
-1. **Split your screen:** Terminal on one side, browser on the other
-2. **Point out to instructor:** "Emails are displayed in console for development"
+1. **Open email on phone/another device** and browser on computer
+2. **Point out to instructor:** "Using Gmail SMTP for real email delivery"
 3. **Navigate through password reset flow** in browser
-4. **Show the email in terminal** when it appears
-5. **Copy the link** and demonstrate it works
+4. **Show the email in your inbox** when it arrives
+5. **Click the link** from email and demonstrate it works
 6. **Successfully reset password** and login
 
 ### Key Talking Points:
 
 - ✅ "Using Django's built-in password reset system"
-- ✅ "Console backend for development - would use SMTP in production"
+- ✅ "Gmail SMTP configured for real email delivery"
+- ✅ "Custom SSL bypass backend for Windows development"
 - ✅ "Email includes secure token that expires"
 - ✅ "Full password reset workflow implemented"
 
-## Console Email Output Example
+## Email Configuration Details
+
+**Current Setup (Windows Development):**
+```python
+# meeting_scheduler/settings.py
+EMAIL_BACKEND = 'calendar_app.email_backend.UnsecureEmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 465
+EMAIL_USE_SSL = True
+EMAIL_HOST_USER = 'manchesterjm@gmail.com'
+EMAIL_HOST_PASSWORD = 'ntuibnehkvahqvna'  # Gmail App Password
+DEFAULT_FROM_EMAIL = 'manchesterjm@gmail.com'
+```
+
+**Why Custom Backend?**
+- Windows has SSL certificate verification issues with Python
+- Custom `UnsecureEmailBackend` bypasses SSL verification for development
+- Production would use standard `django.core.mail.backends.smtp.EmailBackend`
+- Security note: This is documented and acceptable for development only
+
+## Real Email Output Example
 
 ```
-Content-Type: text/plain; charset="utf-8"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Subject: Password reset on localhost:8000
-From: noreply@meetingcalendar.local
-To: admin@meetingcalendar.local
-Date: Sat, 02 Nov 2024 10:30:45 -0000
-Message-ID: <...>
+From: manchesterjm@gmail.com
+To: user@example.com
+Subject: Password reset on 127.0.0.1:8000
+Date: Sat, 02 Jan 2025 14:30:45 -0000
 
-You're receiving this email because you requested a password reset for your user account at localhost:8000.
+You're receiving this email because you requested a password reset for your user account at 127.0.0.1:8000.
 
 Please go to the following page and choose a new password:
 
-http://localhost:8000/password-reset-confirm/MQ/c5kj7h-e3f8a9b2c1d4e5f6a7b8c9d0e1f2a3b4/
+http://127.0.0.1:8000/password-reset-confirm/MQ/c5kj7h-e3f8a9b2c1d4e5f6a7b8c9d0e1f2a3b4/
 
-Your username, in case you've forgotten: admin
+Your username, in case you've forgotten: testuser
 
 Thanks for using our site!
 
-The localhost:8000 team
+The 127.0.0.1:8000 team
 ```
 
-## Switching to Production Email (Future)
+## Alternative: Console Backend (No Email)
 
-If you need real email delivery later, uncomment these lines in `meeting_scheduler/settings.py`:
+For testing without real email, switch to console backend:
+
+**Change in `meeting_scheduler/settings.py`:**
+```python
+# Comment out Gmail SMTP:
+# EMAIL_BACKEND = 'calendar_app.email_backend.UnsecureEmailBackend'
+# EMAIL_HOST = 'smtp.gmail.com'
+# ...
+
+# Enable console backend:
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+```
+
+Then emails will print to terminal instead of sending.
+
+## Production Email Configuration
+
+For production deployment, use standard Django SMTP backend:
 
 ```python
-# For Gmail SMTP (free):
+# settings.py
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = 'smtp.gmail.com'
-EMAIL_PORT = 587
+EMAIL_HOST = os.environ.get('EMAIL_HOST', 'smtp.gmail.com')
+EMAIL_PORT = int(os.environ.get('EMAIL_PORT', 587))
 EMAIL_USE_TLS = True
-EMAIL_HOST_USER = 'your-email@gmail.com'
-EMAIL_HOST_PASSWORD = 'your-app-password'  # Get from Google Account
-DEFAULT_FROM_EMAIL = 'your-email@gmail.com'
+EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER')
+EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD')
+DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL')
 ```
 
-And comment out the console backend:
-```python
-# EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
-```
+**Use environment variables for security!**
 
 ## Troubleshooting
 
-**Problem:** Don't see email in console
-- **Solution:** Make sure you're looking at the terminal where `runserver` is running
+**Problem:** Email not arriving in inbox
+- **Solution 1:** Check spam/junk folder
+- **Solution 2:** Verify email address is correct
+- **Solution 3:** Check terminal for SMTP errors
+- **Solution 4:** Wait a few minutes (SMTP can be slow)
+
+**Problem:** SMTP connection error
+- **Solution:** Check internet connection and firewall settings
+
+**Problem:** SSL certificate error (non-Windows)
+- **Solution:** Use standard SMTP backend with `EMAIL_USE_TLS = True` and port 587
 
 **Problem:** Password reset link doesn't work
-- **Solution:** Make sure you copied the entire link (it's long)
+- **Solution:** Make sure you clicked the entire link from email
 
 **Problem:** Link says "invalid or expired"
-- **Solution:** Links expire after some time. Request a new password reset.
+- **Solution:** Links expire after 20 minutes. Request a new password reset.
 
 **Problem:** Want to test multiple times
 - **Solution:** Just request password reset again - you can do it unlimited times
+
+**Problem:** Custom backend security warning
+- **Solution:** This is expected - Windows development only. Production uses standard backend.
 
 ## Features Demonstrated
 
@@ -163,10 +208,26 @@ And comment out the console backend:
 ## Files Involved
 
 - `calendar_app/urls.py` - URL routing
-- `meeting_scheduler/settings.py` - Email configuration
+- `meeting_scheduler/settings.py` - Email configuration (Gmail SMTP)
+- `calendar_app/email_backend.py` - Custom SSL bypass backend for Windows
 - `calendar_app/templates/calendar_app/password_reset*.html` - Templates
 - Django's built-in `auth.views` - Password reset logic
 
+## Security Notes
+
+**Custom Email Backend:**
+- File: `calendar_app/email_backend.py`
+- Purpose: Bypass SSL certificate verification on Windows
+- Usage: Development only
+- Bandit Warning: Expected (documented in code)
+- Production: Use standard Django SMTP backend
+
+**Gmail App Password:**
+- Currently hardcoded in settings.py (development only)
+- Production: Use environment variables
+- Stored in: `EMAIL_HOST_PASSWORD` setting
+- Security: Do not commit real passwords to version control
+
 ---
 
-**Current Status:** ✅ Fully implemented and ready to demo!
+**Current Status:** ✅ Fully implemented with Gmail SMTP and ready to demo!
