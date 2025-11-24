@@ -252,3 +252,233 @@ class HomeViewTest(TestCase):
         response = self.client.get(reverse('home'))
         # Check for key elements that should be on the home page
         self.assertContains(response, 'Meeting Scheduler')
+
+
+class JoinGroupViewTest(TestCase):
+    """Tests for the join_group_view (join group via code)"""
+
+    def setUp(self):
+        """Set up test users and group"""
+        self.user1 = User.objects.create_user(username='owner', password='pass123')
+        self.user2 = User.objects.create_user(username='joiner', password='pass123')
+        self.client = Client()
+
+        from calendar_app.models import Group
+        from calendar_app.utils import generate_join_code
+
+        self.group = Group.objects.create(name='Test Group', created_by=self.user1)
+        self.group.join_code = generate_join_code()
+        self.group.join_code_enabled = True
+        self.group.save()
+
+    def test_join_group_get(self):
+        """Test accessing join group page"""
+        self.client.login(username='joiner', password='pass123')
+        response = self.client.get(reverse('join_group'))
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'calendar_app/join_group.html')
+        self.assertIn('form', response.context)
+
+    def test_join_group_requires_login(self):
+        """Test that join group view requires authentication"""
+        response = self.client.get(reverse('join_group'))
+        self.assertEqual(response.status_code, 302)
+        self.assertIn('/login/', response.url)
+
+    def test_join_group_valid_code(self):
+        """Test joining group with valid code"""
+        self.client.login(username='joiner', password='pass123')
+        post_data = {'join_code': self.group.join_code}
+        response = self.client.post(reverse('join_group'), post_data)
+
+        # Should redirect to group detail
+        self.assertEqual(response.status_code, 302)
+        # User should now be a member
+        self.assertTrue(self.group.is_member(self.user2))
+
+    def test_join_group_invalid_code(self):
+        """Test joining with invalid code"""
+        self.client.login(username='joiner', password='pass123')
+        post_data = {'join_code': 'INVALID9'}
+        response = self.client.post(reverse('join_group'), post_data)
+
+        # Should show error, not redirect
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Invalid join code')
+        self.assertFalse(self.group.is_member(self.user2))
+
+    def test_join_group_disabled_code(self):
+        """Test joining with disabled code"""
+        self.group.join_code_enabled = False
+        self.group.save()
+
+        self.client.login(username='joiner', password='pass123')
+        post_data = {'join_code': self.group.join_code}
+        response = self.client.post(reverse('join_group'), post_data)
+
+        # Should show error
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'no longer active')
+        self.assertFalse(self.group.is_member(self.user2))
+
+    def test_join_group_already_member(self):
+        """Test joining when already a member"""
+        # Add user2 to group first
+        self.group.members.add(self.user2)
+
+        self.client.login(username='joiner', password='pass123')
+        post_data = {'join_code': self.group.join_code}
+        response = self.client.post(reverse('join_group'), post_data)
+
+        # Should show error
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'already a member')
+
+
+class GenerateJoinCodeViewTest(TestCase):
+    """Tests for the generate_join_code_view"""
+
+    def setUp(self):
+        """Set up test users and group"""
+        self.owner = User.objects.create_user(username='owner', password='pass123')
+        self.non_owner = User.objects.create_user(username='non_owner', password='pass123')
+        self.client = Client()
+
+        from calendar_app.models import Group
+        self.group = Group.objects.create(name='Test Group', created_by=self.owner)
+
+    def test_generate_code_requires_login(self):
+        """Test that code generation requires authentication"""
+        url = reverse('generate_join_code', args=[self.group.id])
+        response = self.client.post(url)
+        self.assertEqual(response.status_code, 302)
+        self.assertIn('/login/', response.url)
+
+    def test_generate_code_owner_only(self):
+        """Test that only owner can generate codes"""
+        self.client.login(username='non_owner', password='pass123')
+        url = reverse('generate_join_code', args=[self.group.id])
+        response = self.client.post(url)
+
+        # Should return 403 Forbidden (PermissionDenied)
+        self.assertEqual(response.status_code, 403)
+
+    def test_generate_code_success(self):
+        """Test successful code generation"""
+        self.client.login(username='owner', password='pass123')
+        url = reverse('generate_join_code', args=[self.group.id])
+        response = self.client.post(url)
+
+        # Should redirect to group detail
+        self.assertEqual(response.status_code, 302)
+
+        # Refresh group from DB
+        self.group.refresh_from_db()
+
+        # Should have a join code now
+        self.assertIsNotNone(self.group.join_code)
+        self.assertEqual(len(self.group.join_code), 8)
+        self.assertTrue(self.group.join_code_enabled)
+
+    def test_generate_code_regeneration(self):
+        """Test regenerating an existing code"""
+        from calendar_app.utils import generate_join_code
+        old_code = generate_join_code()
+        self.group.join_code = old_code
+        self.group.join_code_enabled = True
+        self.group.save()
+
+        self.client.login(username='owner', password='pass123')
+        url = reverse('generate_join_code', args=[self.group.id])
+        response = self.client.post(url)
+
+        # Should redirect
+        self.assertEqual(response.status_code, 302)
+
+        # Refresh group from DB
+        self.group.refresh_from_db()
+
+        # Should have a different code
+        self.assertNotEqual(self.group.join_code, old_code)
+        self.assertTrue(self.group.join_code_enabled)
+
+
+class ToggleJoinCodeViewTest(TestCase):
+    """Tests for the toggle_join_code_view"""
+
+    def setUp(self):
+        """Set up test users and group"""
+        self.owner = User.objects.create_user(username='owner', password='pass123')
+        self.non_owner = User.objects.create_user(username='non_owner', password='pass123')
+        self.client = Client()
+
+        from calendar_app.models import Group
+        from calendar_app.utils import generate_join_code
+
+        self.group = Group.objects.create(name='Test Group', created_by=self.owner)
+        self.group.join_code = generate_join_code()
+        self.group.join_code_enabled = True
+        self.group.save()
+
+    def test_toggle_requires_login(self):
+        """Test that toggle requires authentication"""
+        url = reverse('toggle_join_code', args=[self.group.id])
+        response = self.client.post(url)
+        self.assertEqual(response.status_code, 302)
+        self.assertIn('/login/', response.url)
+
+    def test_toggle_owner_only(self):
+        """Test that only owner can toggle codes"""
+        self.client.login(username='non_owner', password='pass123')
+        url = reverse('toggle_join_code', args=[self.group.id])
+        response = self.client.post(url)
+
+        # Should return 403 Forbidden (PermissionDenied)
+        self.assertEqual(response.status_code, 403)
+
+    def test_toggle_disable(self):
+        """Test disabling an enabled code"""
+        self.client.login(username='owner', password='pass123')
+        url = reverse('toggle_join_code', args=[self.group.id])
+        response = self.client.post(url)
+
+        # Should redirect to group detail
+        self.assertEqual(response.status_code, 302)
+
+        # Refresh group from DB
+        self.group.refresh_from_db()
+
+        # Should be disabled now
+        self.assertFalse(self.group.join_code_enabled)
+        # Code should still exist
+        self.assertIsNotNone(self.group.join_code)
+
+    def test_toggle_enable(self):
+        """Test enabling a disabled code"""
+        self.group.join_code_enabled = False
+        self.group.save()
+
+        self.client.login(username='owner', password='pass123')
+        url = reverse('toggle_join_code', args=[self.group.id])
+        response = self.client.post(url)
+
+        # Should redirect
+        self.assertEqual(response.status_code, 302)
+
+        # Refresh group from DB
+        self.group.refresh_from_db()
+
+        # Should be enabled now
+        self.assertTrue(self.group.join_code_enabled)
+
+    def test_toggle_no_code_error(self):
+        """Test toggling when no code exists"""
+        self.group.join_code = None
+        self.group.save()
+
+        self.client.login(username='owner', password='pass123')
+        url = reverse('toggle_join_code', args=[self.group.id])
+        response = self.client.post(url)
+
+        # Should redirect with error
+        self.assertEqual(response.status_code, 302)

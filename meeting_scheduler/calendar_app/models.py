@@ -95,6 +95,8 @@ class Group(models.Model):
         created_by: User who created the group (group owner).
         created_at: Timestamp when the group was created.
         members: Many-to-many relationship with User model for group membership.
+        join_code: Optional 8-character alphanumeric code for easy group joining.
+        join_code_enabled: Whether the join code is currently active for use.
     """
     name = models.CharField(max_length=100, unique=True)
     created_by = models.ForeignKey(
@@ -107,6 +109,17 @@ class Group(models.Model):
         settings.AUTH_USER_MODEL,
         related_name='calendar_groups',
         blank=True
+    )
+    join_code = models.CharField(
+        max_length=8,
+        unique=True,
+        null=True,
+        blank=True,
+        help_text="8-character code for joining this group"
+    )
+    join_code_enabled = models.BooleanField(
+        default=True,
+        help_text="Whether the join code is currently active"
     )
 
     class Meta:

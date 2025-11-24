@@ -12,6 +12,7 @@ Forms:
     - AddMemberForm: Add users to groups
     - GroupUnavailabilityForm: Group calendar entries
     - GroupDeleteSelectedForm: Bulk delete group entries
+    - JoinGroupForm: Join a group using a join code
 
 Security Note: All forms use Django's built-in CSRF protection and input sanitization.
 """
@@ -417,3 +418,72 @@ class GroupDeleteSelectedForm(forms.Form):
         required=False,
         widget=forms.CheckboxSelectMultiple
     )
+
+
+class JoinGroupForm(forms.Form):
+    """
+    Form for joining a group using a join code.
+
+    Validates that the join code exists, is enabled, and the user is not
+    already a member of the group.
+
+    Attributes:
+        join_code: CharField for entering the 8-character join code.
+    """
+
+    join_code = forms.CharField(
+        max_length=8,
+        min_length=8,
+        widget=forms.TextInput(attrs={
+            'placeholder': 'Enter 8-character code',
+            'autocomplete': 'off',
+            'class': 'form-input',
+            'style': 'text-transform: uppercase;',
+            'pattern': '[A-Z0-9]{8}'
+        }),
+        help_text='Enter the 8-character join code (e.g., AB2C3DEF)'
+    )
+
+    def __init__(self, *args, user=None, **kwargs):
+        """
+        Initialize the JoinGroupForm with user context.
+
+        Args:
+            user: The User instance attempting to join (used for validation).
+            *args: Variable length argument list.
+            **kwargs: Arbitrary keyword arguments.
+        """
+        self.user = user
+        self.group = None  # Will be set during validation
+        super().__init__(*args, **kwargs)
+
+    def clean_join_code(self):
+        """
+        Validate the join code and check user eligibility.
+
+        Returns:
+            str: The cleaned and uppercased join code.
+
+        Raises:
+            ValidationError: If code is invalid, disabled, or user already member.
+        """
+        code = self.cleaned_data.get('join_code', '').strip().upper()
+
+        # Check if code exists
+        try:
+            group = Group.objects.get(join_code=code)
+        except Group.DoesNotExist as exc:
+            raise forms.ValidationError('Invalid join code. Please check and try again.') from exc
+
+        # Check if code is enabled
+        if not group.join_code_enabled:
+            raise forms.ValidationError('This join code is no longer active.')
+
+        # Check if user is already a member
+        if self.user and group.is_member(self.user):
+            raise forms.ValidationError('You are already a member of this group.')
+
+        # Store the group for use in the view
+        self.group = group
+
+        return code

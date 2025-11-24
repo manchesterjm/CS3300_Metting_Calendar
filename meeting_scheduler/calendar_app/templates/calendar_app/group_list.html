@@ -9,19 +9,38 @@ h1 {
     text-align: center;
 }
 
-.create-group-btn {
+.top-actions {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+    margin-bottom: 30px;
+    flex-wrap: wrap;
+}
+
+.create-group-btn,
+.join-group-btn {
     display: inline-block;
     padding: 12px 24px;
-    background-color: #1abc9c;
     color: white;
     text-decoration: none;
     border-radius: 4px;
-    margin-bottom: 30px;
     transition: background-color 0.3s;
+}
+
+.create-group-btn {
+    background-color: #1abc9c;
 }
 
 .create-group-btn:hover {
     background-color: #16a085;
+}
+
+.join-group-btn {
+    background-color: #3498db;
+}
+
+.join-group-btn:hover {
+    background-color: #2980b9;
 }
 
 .group-list {
@@ -109,8 +128,9 @@ h1 {
 {% block content %}
     <h1>My Groups</h1>
 
-    <div style="text-align: center; margin-bottom: 30px;">
+    <div class="top-actions">
         <a href="{% url 'group_create' %}" class="create-group-btn">Create New Group</a>
+        <a href="{% url 'join_group' %}" class="join-group-btn">Join with Code</a>
     </div>
 
     {% if groups %}

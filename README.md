@@ -37,6 +37,10 @@ Meeting Scheduler helps users manage their availability and coordinate schedules
 
 ### 👥 Group Collaboration
 - **Create Groups**: Form scheduling groups with team members
+- **Join with Code**: Easy onboarding with 8-character join codes (e.g., `AB2C3DEF`)
+  - Group admins generate shareable codes
+  - Users join instantly by entering the code
+  - Codes can be enabled/disabled or regenerated
 - **Add Members**: Invite users to your group by username
 - **Read-Only Group Calendar**: View common free times for all group members
   - Automatically aggregates all members' personal calendars
@@ -66,6 +70,29 @@ Meeting Scheduler helps users manage their availability and coordinate schedules
 - **Navigation Banner**: Persistent header with user info and quick actions
 - **Success Messages**: Clear feedback for all actions
 - **Mobile-Optimized**: Touch-friendly buttons and stacked layouts
+
+---
+
+## 🗺️ Roadmap
+
+### Planned Features
+
+#### Phase 1: Enhanced Onboarding (In Progress)
+- **🟡 Group Join Codes** - Generate shareable codes for easy group joining
+  - Status: In Development
+  - Target: November 2025
+
+#### Phase 2: Schedule Automation (Next)
+- **🔴 Recurring Unavailability** - Define repeating blocks (e.g., "Every Monday 9-5")
+  - Status: Planned
+  - Target: Q1 2026
+
+#### Phase 3: Meeting Coordination (Future)
+- **🔴 Meeting Proposals** - Propose specific meeting times with accept/decline workflow
+  - Status: Planned
+  - Target: Q2 2026
+
+See [ROADMAP.md](./ROADMAP.md) for detailed feature specifications, timelines, and technical requirements.
 
 ---
 
@@ -159,6 +186,7 @@ Access at: `http://<your-ip>:8000/`
 | Document | Description |
 |----------|-------------|
 | [CLAUDE.md](./CLAUDE.md) | **Primary development guide** - Setup, testing, security |
+| [ROADMAP.md](./ROADMAP.md) | **Product roadmap** - Planned features and timeline |
 | [STYLE_GUIDE.md](./STYLE_GUIDE.md) | Python/Django coding standards |
 | [SECURITY_GUIDE.md](./SECURITY_GUIDE.md) | Security best practices and scanning tools |
 | [PASSWORD_RESET_GUIDE.md](./PASSWORD_RESET_GUIDE.md) | Password reset testing instructions |
