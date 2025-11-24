@@ -164,7 +164,7 @@ python manage.py test calendar_app.test_fuzz --verbosity=2
 python manage.py test calendar_app --verbosity=1
 ```
 
-**Expected Result:** All 144 tests (93 unit + 16 fuzz + 35 other) must pass
+**Expected Result:** All 172 tests (124 unit + 48 fuzz/integration) must pass
 
 #### Step 5: Run Mutation Tests
 ```bash
@@ -235,10 +235,10 @@ coverage html  # Report in htmlcov/index.html
 
 **All code changes MUST meet these criteria before being considered complete:**
 
-✅ Pylint score: 9.0+ (or all issues fixed)
-✅ Unit tests: 93/93 passing
-✅ Fuzz tests: 16/16 passing
-✅ Total tests: 141/141 passing
+✅ Pylint score: 10.00/10 (perfect score)
+✅ Unit tests: 124/124 passing
+✅ Fuzz/Integration tests: 48/48 passing
+✅ Total tests: 172/172 passing
 ✅ Mutation score: 100%
 ✅ Code coverage: 93%+ on critical modules
 ✅ Security scans: 0 vulnerabilities (Bandit, Safety, pip-audit, Semgrep)
@@ -252,13 +252,12 @@ coverage html  # Report in htmlcov/index.html
 5. Then continue to next test type
 
 ### Current Test Statistics
-- Unit tests: 93 tests covering models, forms, views, groups, and authentication
-- Fuzz tests: 16 tests with ~350 generated test cases
-- Debug/Integration tests: 35 additional tests (includes utils tests)
-- Total test cases: 144 tests + 350 fuzz-generated cases
-- Code coverage: 93%+ on critical modules (models, forms, views), 74% overall
+- Unit tests: 124 tests covering models, forms, views, groups, authentication, and join codes
+- Fuzz/Integration tests: 48 tests (includes fuzz tests with ~350 generated cases + integration tests)
+- Total test cases: 172 tests
+- Code coverage: 89%+ overall (improved with join codes feature)
 - Mutation score: 100% (8/8 mutations killed)
-- Test execution time: ~2 seconds
+- Test execution time: ~77 seconds
 
 ### New Feature Testing Policy
 
@@ -591,7 +590,7 @@ After receiving a comprehensive code review from ChatGPT AI, 8 of 14 identified 
 - **#14**: Split tests.py into multiple test modules (~1350 lines → test_models.py, test_forms.py, etc.)
 
 ### Testing Results After Fixes
-- ✅ All 144 tests passing (93 unit + 16 fuzz + 35 other)
+- ✅ All 172 tests passing (124 unit + 48 fuzz/integration)
 - ✅ Pylint score: 10.00/10 (no warnings or errors)
 - ✅ Code coverage: 93%+ on critical modules (models, forms, views)
 - ✅ Mutation score: 100% (8/8 mutations killed)
