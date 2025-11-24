@@ -24,12 +24,17 @@ class Unavailability(models.Model):
     for scheduling meetings. Each entry represents a continuous unavailable period
     on a specific date and is associated with a specific user.
 
+    Supports recurring unavailability patterns (e.g., "Every Monday 9:00-17:00").
+
     Attributes:
         user: The user who created this unavailability entry.
         date: The date of the unavailability (YYYY-MM-DD format).
         start_time: The beginning time of the unavailable period (HH:MM format).
         end_time: The ending time of the unavailable period (HH:MM format).
         description: Optional description of the unavailability (e.g., "Doctor appointment").
+        is_recurring: Whether this entry is part of a recurring pattern (default: False).
+        recurrence_pattern: JSON data defining recurrence (frequency, days, end_date, interval).
+        parent_recurring_entry: Link to the master recurring entry that spawned this instance.
     """
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -40,6 +45,15 @@ class Unavailability(models.Model):
     start_time = models.TimeField()
     end_time = models.TimeField()
     description = models.CharField(max_length=200, blank=True, default='')
+    is_recurring = models.BooleanField(default=False)
+    recurrence_pattern = models.JSONField(null=True, blank=True)
+    parent_recurring_entry = models.ForeignKey(
+        'self',
+        null=True,
+        blank=True,
+        on_delete=models.CASCADE,
+        related_name='recurring_instances'
+    )
 
     class Meta:
         verbose_name_plural = "Unavailabilities"

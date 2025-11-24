@@ -54,24 +54,77 @@ class BaseDescriptionForm(forms.Form):
 
 class UnavailabilityForm(BaseDescriptionForm, forms.ModelForm):  # pylint: disable=too-many-ancestors
     """
-    Form for creating and displaying unavailability entries.
+    Form for creating and displaying unavailability entries with recurring pattern support.
 
     This form handles the creation of new unavailability entries with automatic
     date defaulting to today's date. It includes conditional validation based
     on the submit_type parameter to prevent invalid entries when creating new
     unavailability records.
 
+    Supports recurring patterns (daily, weekly, monthly) with customizable intervals
+    and end dates.
+
     Args:
         submit_type (str, optional): Type of form submission ('submit_unavailability'
             enables strict validation). Defaults to None.
     """
+
+    FREQUENCY_CHOICES = [
+        ('', 'Select frequency'),
+        ('daily', 'Daily'),
+        ('weekly', 'Weekly'),
+        ('monthly', 'Monthly'),
+    ]
+
+    DAY_OF_WEEK_CHOICES = [
+        ('monday', 'Monday'),
+        ('tuesday', 'Tuesday'),
+        ('wednesday', 'Wednesday'),
+        ('thursday', 'Thursday'),
+        ('friday', 'Friday'),
+        ('saturday', 'Saturday'),
+        ('sunday', 'Sunday'),
+    ]
+
+    is_recurring = forms.BooleanField(
+        required=False,
+        label='Make this recurring',
+        help_text='Create this unavailability on multiple dates automatically'
+    )
+    frequency = forms.ChoiceField(
+        choices=FREQUENCY_CHOICES,
+        required=False,
+        label='Repeat frequency',
+        help_text='How often should this repeat?'
+    )
+    days_of_week = forms.MultipleChoiceField(
+        choices=DAY_OF_WEEK_CHOICES,
+        required=False,
+        widget=forms.CheckboxSelectMultiple,
+        label='Days of week',
+        help_text='For weekly recurrence, select which days'
+    )
+    interval = forms.IntegerField(
+        required=False,
+        initial=1,
+        min_value=1,
+        max_value=52,
+        label='Repeat every',
+        help_text='Repeat every N days/weeks/months (e.g., 1 = every week, 2 = every other week)'
+    )
+    recurrence_end_date = forms.DateField(
+        required=False,
+        widget=forms.DateInput(attrs={'type': 'date'}),
+        label='End date (optional)',
+        help_text='When should the recurrence stop? Leave blank for 90 days from start'
+    )
 
     def __init__(self, *args, **kwargs):
         """
         Initialize the UnavailabilityForm with custom default values.
 
         Sets the date field default to today's date and configures widget
-        attributes for proper browser display.
+        attributes for proper browser display. Adds recurrence fields dynamically.
 
         Args:
             *args: Variable length argument list.
@@ -122,16 +175,24 @@ class UnavailabilityForm(BaseDescriptionForm, forms.ModelForm):  # pylint: disab
         to ensure users have changed default values before submission to prevent
         database corruption from unintentional default entries.
 
+        Also validates recurrence pattern fields when is_recurring is checked.
+
         Returns:
             dict: The cleaned data dictionary from form validation.
 
         Raises:
             ValidationError: If required fields still contain default values when
-                submitting a new unavailability entry.
+                submitting a new unavailability entry, or if recurrence fields are invalid.
         """
         cleaned_data = super().clean()
         start_time = cleaned_data.get('start_time')
         end_time = cleaned_data.get('end_time')
+        is_recurring = cleaned_data.get('is_recurring', False)
+        frequency = cleaned_data.get('frequency')
+        days_of_week = cleaned_data.get('days_of_week', [])
+        interval = cleaned_data.get('interval')
+        recurrence_end_date = cleaned_data.get('recurrence_end_date')
+        date = cleaned_data.get('date')
 
         # Only perform default-check validation when submitting new unavailability
         if self.submit_type == 'submit_unavailability':
@@ -139,7 +200,6 @@ class UnavailabilityForm(BaseDescriptionForm, forms.ModelForm):  # pylint: disab
             # Not strictly needed with dynamic date default, but kept for flexibility
             fake_default_date = datetime.date(2025, 1, 1)
             fake_default_time = datetime.time(0, 0)
-            date = cleaned_data.get('date')
 
             # Validate that user changed date and times from defaults
             if date == fake_default_date:
@@ -152,6 +212,21 @@ class UnavailabilityForm(BaseDescriptionForm, forms.ModelForm):  # pylint: disab
             # Validate time range (only when submitting new unavailability)
             if start_time and end_time and start_time >= end_time:
                 self.add_error('end_time', "End time must be after start time.")
+
+            # Validate recurrence pattern if recurring is checked
+            if is_recurring:
+                if not frequency:
+                    self.add_error('frequency', "Please select a frequency for recurring entries.")
+
+                if frequency == 'weekly' and not days_of_week:
+                    self.add_error('days_of_week', "Please select at least one day of the week for weekly recurrence.")
+
+                if not interval or interval < 1:
+                    self.add_error('interval', "Interval must be at least 1.")
+
+                # Validate end date is after start date if provided
+                if recurrence_end_date and date and recurrence_end_date <= date:
+                    self.add_error('recurrence_end_date', "End date must be after the start date.")
 
         return cleaned_data
 

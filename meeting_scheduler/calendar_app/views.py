@@ -77,20 +77,55 @@ def calendar_view(request):
                 # Save but don't commit yet - need to associate with user
                 new_record = form.save(commit=False)
                 new_record.user = request.user
+
+                # Handle recurring entries
+                is_recurring = form.cleaned_data.get('is_recurring', False)
+                if is_recurring:
+                    # Build recurrence pattern from form data
+                    frequency = form.cleaned_data.get('frequency')
+                    days_of_week = form.cleaned_data.get('days_of_week', [])
+                    interval = form.cleaned_data.get('interval', 1)
+                    recurrence_end_date = form.cleaned_data.get('recurrence_end_date')
+
+                    pattern = {
+                        'frequency': frequency,
+                        'interval': interval,
+                    }
+                    if frequency == 'weekly':
+                        pattern['days'] = days_of_week
+                    if recurrence_end_date:
+                        pattern['end_date'] = recurrence_end_date.strftime('%Y-%m-%d')
+
+                    # Set recurring fields on the master entry
+                    new_record.is_recurring = True
+                    new_record.recurrence_pattern = pattern
+
                 new_record.save()
-                # Success message with description if provided
-                if new_record.description:
+
+                # Generate recurring instances if this is a recurring entry
+                if is_recurring:
+                    from calendar_app.utils import generate_recurring_instances  # pylint: disable=import-outside-toplevel
+                    instances = generate_recurring_instances(new_record)
+                    instance_count = len(instances)
                     messages.success(
                         request,
-                        f'New Record Made: <br>{new_record.date} from '
-                        f'{new_record.start_time} to {new_record.end_time} - {new_record.description}'
+                        f'Recurring entry created: {instance_count} instances generated<br>'
+                        f'Starting {new_record.date} from {new_record.start_time} to {new_record.end_time}'
                     )
                 else:
-                    messages.success(
-                        request,
-                        f'New Record Made: <br>{new_record.date} from '
-                        f'{new_record.start_time} to {new_record.end_time}'
-                    )
+                    # Success message for non-recurring entry
+                    if new_record.description:
+                        messages.success(
+                            request,
+                            f'New Record Made: <br>{new_record.date} from '
+                            f'{new_record.start_time} to {new_record.end_time} - {new_record.description}'
+                        )
+                    else:
+                        messages.success(
+                            request,
+                            f'New Record Made: <br>{new_record.date} from '
+                            f'{new_record.start_time} to {new_record.end_time}'
+                        )
                 return redirect('calendar')  # return to calendar initial view
             # and again, I have not been able to make it error in such a way
             # that this gets displayed now
