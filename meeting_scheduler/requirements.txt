@@ -18,5 +18,5 @@ python-decouple==3.8
 beautifulsoup4==4.14.2
 
 # HTTP Requests (for live testing)
-requests==2.32.4
+requests==2.32.5
 
