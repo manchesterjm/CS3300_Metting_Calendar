@@ -1,0 +1,307 @@
+name: Security Scanning (Semgrep & pip-audit)
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+
+permissions:
+  contents: read        # Required to checkout code
+  pull-requests: write  # Required to post PR comments
+
+jobs:
+  security-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: 'meeting_scheduler/requirements*.txt'
+
+      - name: Install dependencies
+        run: |
+          cd meeting_scheduler
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
+
+      # ============================================================
+      # SEMGREP - Security Pattern Scanner
+      # ============================================================
+      - name: Run Semgrep
+        id: semgrep
+        # continue-on-error allows all scanners to run even if one fails
+        # This is intentional: scans are informational, not blocking
+        # Results are reported in PR comments for manual review
+        continue-on-error: true
+        run: |
+          cd meeting_scheduler
+          echo "## Semgrep Security Scan" >> $GITHUB_STEP_SUMMARY
+
+          # Run semgrep and capture output
+          if semgrep --config=.semgrep.yml calendar_app/ --json -o semgrep-results.json; then
+            echo "✅ Semgrep: No security issues found" >> $GITHUB_STEP_SUMMARY
+            echo "status=success" >> $GITHUB_OUTPUT
+          else
+            # Check if there are actual findings
+            FINDINGS=$(python3 -c "import json; data=json.load(open('semgrep-results.json')); print(len(data.get('results', [])))" 2>/dev/null || echo "0")
+
+            if [ "$FINDINGS" -eq 0 ]; then
+              echo "✅ Semgrep: No security issues found" >> $GITHUB_STEP_SUMMARY
+              echo "status=success" >> $GITHUB_OUTPUT
+            else
+              echo "⚠️ Semgrep: Found $FINDINGS security issue(s)" >> $GITHUB_STEP_SUMMARY
+              echo "status=issues" >> $GITHUB_OUTPUT
+              echo "findings=$FINDINGS" >> $GITHUB_OUTPUT
+
+              # Show details
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "### Findings:" >> $GITHUB_STEP_SUMMARY
+              semgrep --config=.semgrep.yml calendar_app/ | tee -a $GITHUB_STEP_SUMMARY || true
+            fi
+          fi
+
+      - name: Upload Semgrep results
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: semgrep-results
+          path: meeting_scheduler/semgrep-results.json
+          if-no-files-found: ignore
+
+      # ============================================================
+      # PIP-AUDIT - Dependency Vulnerability Scanner
+      # ============================================================
+      - name: Run pip-audit
+        id: pip-audit
+        continue-on-error: true
+        run: |
+          cd meeting_scheduler
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## pip-audit Vulnerability Scan" >> $GITHUB_STEP_SUMMARY
+
+          # Run pip-audit and capture output
+          if python -m pip_audit -r requirements.txt --format json -o pip-audit-results.json; then
+            echo "✅ pip-audit: No known vulnerabilities found" >> $GITHUB_STEP_SUMMARY
+            echo "status=success" >> $GITHUB_OUTPUT
+          else
+            # Check if there are actual vulnerabilities
+            VULNS=$(python3 -c "import json; data=json.load(open('pip-audit-results.json')); print(len(data.get('vulnerabilities', [])))" 2>/dev/null || echo "0")
+
+            if [ "$VULNS" -eq 0 ]; then
+              echo "✅ pip-audit: No known vulnerabilities found" >> $GITHUB_STEP_SUMMARY
+              echo "status=success" >> $GITHUB_OUTPUT
+            else
+              echo "⚠️ pip-audit: Found $VULNS vulnerability(ies)" >> $GITHUB_STEP_SUMMARY
+              echo "status=vulnerabilities" >> $GITHUB_OUTPUT
+              echo "vulnerabilities=$VULNS" >> $GITHUB_OUTPUT
+
+              # Show details in human-readable format
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "### Vulnerabilities:" >> $GITHUB_STEP_SUMMARY
+              python -m pip_audit -r requirements.txt | tee -a $GITHUB_STEP_SUMMARY || true
+            fi
+          fi
+
+      - name: Upload pip-audit results
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: pip-audit-results
+          path: meeting_scheduler/pip-audit-results.json
+          if-no-files-found: ignore
+
+      # ============================================================
+      # BANDIT - Python Security Linter
+      # ============================================================
+      - name: Run Bandit
+        id: bandit
+        continue-on-error: true
+        run: |
+          cd meeting_scheduler
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Bandit Security Linter" >> $GITHUB_STEP_SUMMARY
+
+          # Run bandit and capture output
+          if python -m bandit -r calendar_app/ --configfile .bandit -f json -o bandit-results.json; then
+            echo "✅ Bandit: No security issues found" >> $GITHUB_STEP_SUMMARY
+            echo "status=success" >> $GITHUB_OUTPUT
+          else
+            # Check severity of issues
+            ISSUES=$(python3 -c "import json; data=json.load(open('bandit-results.json')); print(len(data.get('results', [])))" 2>/dev/null || echo "0")
+
+            if [ "$ISSUES" -eq 0 ]; then
+              echo "✅ Bandit: No security issues found" >> $GITHUB_STEP_SUMMARY
+              echo "status=success" >> $GITHUB_OUTPUT
+            else
+              echo "⚠️ Bandit: Found $ISSUES security issue(s)" >> $GITHUB_STEP_SUMMARY
+              echo "status=issues" >> $GITHUB_OUTPUT
+              echo "issues=$ISSUES" >> $GITHUB_OUTPUT
+
+              # Show details
+              echo "" >> $GITHUB_STEP_SUMMARY
+              python -m bandit -r calendar_app/ --configfile .bandit | tee -a $GITHUB_STEP_SUMMARY || true
+            fi
+          fi
+
+      - name: Upload Bandit results
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: bandit-results
+          path: meeting_scheduler/bandit-results.json
+          if-no-files-found: ignore
+
+      # ============================================================
+      # SAFETY - Dependency Vulnerability Scanner
+      # ============================================================
+      - name: Run Safety
+        id: safety
+        continue-on-error: true
+        run: |
+          cd meeting_scheduler
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Safety Vulnerability Scan" >> $GITHUB_STEP_SUMMARY
+
+          # Safety scan (may exit non-zero for various reasons)
+          if python -m safety scan --output json > safety-results.json 2>&1; then
+            echo "✅ Safety: No known vulnerabilities found" >> $GITHUB_STEP_SUMMARY
+            echo "status=success" >> $GITHUB_OUTPUT
+          else
+            # Check output for actual vulnerabilities
+            if grep -q "0 vulnerabilities" safety-results.json 2>/dev/null; then
+              echo "✅ Safety: No known vulnerabilities found" >> $GITHUB_STEP_SUMMARY
+              echo "status=success" >> $GITHUB_OUTPUT
+            else
+              echo "⚠️ Safety: Vulnerabilities or warnings detected" >> $GITHUB_STEP_SUMMARY
+              echo "status=warnings" >> $GITHUB_OUTPUT
+
+              # Show details
+              echo "" >> $GITHUB_STEP_SUMMARY
+              cat safety-results.json | tee -a $GITHUB_STEP_SUMMARY || true
+            fi
+          fi
+
+      - name: Upload Safety results
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: safety-results
+          path: meeting_scheduler/safety-results.json
+          if-no-files-found: ignore
+
+      # ============================================================
+      # PR COMMENT - Post results on Pull Requests
+      # ============================================================
+      - name: Generate security report
+        if: github.event_name == 'pull_request'
+        id: report
+        run: |
+          cd meeting_scheduler
+
+          # Create markdown report
+          cat > security-report.md << 'EOF'
+          ## 🔒 Security Scan Results
+
+          ### Summary
+
+          | Scanner | Status |
+          |---------|--------|
+          | Semgrep | ${{ steps.semgrep.outputs.status == 'success' && '✅ Pass' || '⚠️ Issues Found' }} |
+          | pip-audit | ${{ steps.pip-audit.outputs.status == 'success' && '✅ Pass' || '⚠️ Vulnerabilities' }} |
+          | Bandit | ${{ steps.bandit.outputs.status == 'success' && '✅ Pass' || '⚠️ Issues Found' }} |
+          | Safety | ${{ steps.safety.outputs.status == 'success' && '✅ Pass' || '⚠️ Warnings' }} |
+
+          ### Details
+
+          EOF
+
+          # Add Semgrep details
+          if [ "${{ steps.semgrep.outputs.status }}" != "success" ]; then
+            echo "**Semgrep:** Found ${{ steps.semgrep.outputs.findings || 0 }} security pattern(s)" >> security-report.md
+            echo "" >> security-report.md
+          fi
+
+          # Add pip-audit details
+          if [ "${{ steps.pip-audit.outputs.status }}" != "success" ]; then
+            echo "**pip-audit:** Found ${{ steps.pip-audit.outputs.vulnerabilities || 0 }} vulnerability(ies)" >> security-report.md
+            echo "" >> security-report.md
+          fi
+
+          # Add Bandit details
+          if [ "${{ steps.bandit.outputs.status }}" != "success" ]; then
+            echo "**Bandit:** Found ${{ steps.bandit.outputs.issues || 0 }} security issue(s)" >> security-report.md
+            echo "" >> security-report.md
+          fi
+
+          # Add footer
+          cat >> security-report.md << 'EOF'
+
+          <details>
+          <summary>📊 View Detailed Reports</summary>
+
+          Download the artifacts from this workflow run to see detailed JSON reports for each scanner.
+
+          **Commit:** `${{ github.event.pull_request.head.sha }}`
+          **Run:** [View Full Report](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+
+          </details>
+
+          ---
+
+          **Security Policy:** All vulnerabilities should be addressed before merging.
+          EOF
+
+          # Output for next step
+          echo "report_path=security-report.md" >> $GITHUB_OUTPUT
+
+      - name: Post security results comment
+        if: github.event_name == 'pull_request'
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: security-scan
+          path: meeting_scheduler/security-report.md
+
+      # ============================================================
+      # FINAL STATUS CHECK
+      # ============================================================
+      - name: Check security status
+        run: |
+          echo "Security scan completed"
+
+          # Count issues
+          ISSUES=0
+
+          if [ "${{ steps.semgrep.outputs.status }}" != "success" ]; then
+            ISSUES=$((ISSUES + 1))
+          fi
+
+          if [ "${{ steps.pip-audit.outputs.status }}" != "success" ]; then
+            ISSUES=$((ISSUES + 1))
+          fi
+
+          if [ "${{ steps.bandit.outputs.status }}" != "success" ]; then
+            ISSUES=$((ISSUES + 1))
+          fi
+
+          # Note: We don't fail on Safety warnings as they can be informational
+
+          if [ $ISSUES -gt 0 ]; then
+            echo "⚠️ Security issues detected in $ISSUES scanner(s)"
+            echo "Review the results above and address any critical vulnerabilities"
+            echo "Note: This check is informational and does not block the workflow"
+          else
+            echo "✅ All security scans passed!"
+          fi
+
+          # DESIGN CHOICE: Exit 0 to make this informational rather than blocking
+          # Rationale: Provides security visibility without blocking development flow
+          # Security issues are reported in PR comments for manual review
+          # To make scans blocking (fail build on issues), change to 'exit 1'
+          exit 0

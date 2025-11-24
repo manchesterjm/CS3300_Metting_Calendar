@@ -1,0 +1,59 @@
+version: 2
+
+# Dependabot creates PRs for dependency updates - it does NOT auto-merge
+# All updates require manual review and approval before merging
+# This provides automated monitoring while maintaining control over changes
+
+updates:
+  # Monitor Python dependencies in requirements.txt
+  - package-ecosystem: "pip"
+    directory: "/meeting_scheduler"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "security"
+      - "python"
+    commit-message:
+      prefix: "deps"
+      include: "scope"
+    reviewers:
+      - "manchesterjm"
+    assignees:
+      - "manchesterjm"
+    # Group all minor and patch updates together
+    groups:
+      development-dependencies:
+        patterns:
+          - "pytest*"
+          - "pylint*"
+          - "hypothesis*"
+          - "coverage*"
+          - "bandit*"
+          - "safety*"
+          - "pip-audit*"
+          - "semgrep*"
+      production-dependencies:
+        patterns:
+          - "Django*"
+          - "gunicorn*"
+          - "psycopg2*"
+          - "whitenoise*"
+
+  # Monitor GitHub Actions workflow dependencies
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "github-actions"
+    commit-message:
+      prefix: "ci"
+      include: "scope"
