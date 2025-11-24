@@ -1,6 +1,6 @@
 # Product Roadmap - Meeting Scheduler
 
-**Last Updated**: November 23, 2025
+**Last Updated**: November 24, 2025
 
 ---
 
@@ -10,21 +10,23 @@ Transform the Meeting Scheduler from a "find free times" tool into a complete me
 
 ---
 
-## 📋 Current Status (v1.0 - Production Ready)
+## 📋 Current Status (v3.0 - Production Ready)
 
 ### ✅ Completed Features
 - Personal calendar management with unavailability tracking
 - Group creation and member management
-- **Group join codes** - Easy onboarding with shareable 8-char codes ⭐ NEW
+- **Group join codes** - Easy onboarding with shareable 8-char codes
+- **Recurring unavailability** - Daily/weekly/monthly patterns with auto-expansion
+- **Meeting proposals** - Complete proposal/accept/auto-schedule workflow ⭐ NEW
 - Read-only group calendars showing common free times
 - User authentication and password reset
 - Responsive mobile-friendly UI
 - Email integration (console and SMTP)
-- Comprehensive test suite (172 tests, 93% coverage, 100% mutation score)
+- Comprehensive test suite (232 tests, 93% coverage, 100% mutation score)
 - Production deployment documentation
-- Security hardening (0 vulnerabilities)
+- Security hardening (0 vulnerabilities, CSRF protection, owner participation fixes)
 
-**Status**: Production-ready with join codes feature
+**Status**: Production-ready with all 3 roadmap phases complete
 
 ---
 
@@ -189,10 +191,11 @@ parent_recurring_entry = models.ForeignKey('self', null=True, blank=True, on_del
 - ✅ Created two templates: create_proposal.html and proposal_list.html
 - ✅ Added URL patterns for proposals
 - ✅ Updated group_detail.html with "Meeting Proposals" button
-- ✅ Comprehensive tests: 30 new tests (model, form, view, workflow tests)
-- ✅ All 202 tests passing (172 existing + 30 new)
+- ✅ Comprehensive tests: 37 new tests (model, form, view, workflow, security tests)
+- ✅ All 232 tests passing (195 existing + 37 new)
 - ✅ Pylint score: 10.00/10
 - ✅ Zero regressions introduced
+- ✅ Security fixes: CSRF protection (POST-only endpoints) and owner exclusion vulnerability fixed
 
 **Database Schema**:
 ```python
@@ -227,7 +230,9 @@ class MeetingResponse(models.Model):
 - ✅ Meeting auto-rejects if anyone declines
 - ✅ Scheduled meetings block personal calendars (Unavailability entries created)
 - ✅ Proposal list shows all proposals with status badges
-- ✅ All 202 tests passing with new feature
+- ✅ All 232 tests passing with new feature
+- ✅ CSRF protection implemented (POST-only with CSRF tokens)
+- ✅ Owner participation validated (owners can respond, counted in acceptance, calendar blocked)
 
 ---
 
@@ -307,7 +312,7 @@ class MeetingResponse(models.Model):
 8. **Deployment**: Production deployment, smoke testing
 
 ### Quality Gates
-- All tests passing (202+ tests)
+- All tests passing (232+ tests)
 - Pylint score 9.0+ or all issues fixed
 - Mutation score 100%
 - Code coverage 93%+ on critical modules
@@ -340,7 +345,8 @@ When implementing roadmap features:
 
 ## 📝 Change Log
 
-- **2025-11-24**: Phase 3 (Meeting Proposals) completed - Full workflow delivered, 202 tests passing, Pylint 10.00/10
+- **2025-11-24**: Phase 3 security fixes - Fixed CSRF vulnerability and owner exclusion bug, 232 tests passing, Pylint 10.00/10
+- **2025-11-24**: Phase 3 (Meeting Proposals) completed - Full workflow delivered, 37 new tests, Pylint 10.00/10
 - **2025-11-24**: Phase 2 (Recurring Unavailability) FULLY COMPLETED - 195 tests passing, Pylint 9.72/10, UI + delete logic + comprehensive tests + security hardening
 - **2025-11-23**: Phase 1 (Join Codes) completed - All features delivered, 172 tests passing, Pylint 10.00/10
 - **2025-11-23**: Roadmap created, Phase 1 (Join Codes) started

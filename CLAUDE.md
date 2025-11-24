@@ -4,7 +4,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a Django-based meeting scheduler application (CS3300 course project) that manages user unavailability and calculates free time slots for scheduling meetings.
+This is a Django-based meeting scheduler application (CS3300 course project) that manages user unavailability, calculates free time slots, and coordinates meeting scheduling through proposals.
+
+**Features (v3.0):**
+- Personal calendar management with unavailability tracking
+- Recurring unavailability patterns (daily/weekly/monthly)
+- Group management with join codes
+- Meeting proposals with accept/decline workflow
+- Auto-scheduling with calendar blocking
+- Email notifications
+- Comprehensive security (CSRF protection, authentication, authorization)
 
 ## Project Structure
 
@@ -14,17 +23,31 @@ CS3300_project/
 │   ├── manage.py               # Django management script
 │   ├── db.sqlite3              # SQLite database
 │   ├── meeting_scheduler/      # Project configuration
-│   │   ├── settings.py         # Django settings (uses Django 5.1.6)
+│   │   ├── settings.py         # Django settings (uses Django 5.1.13)
 │   │   ├── urls.py             # Root URL configuration
 │   │   ├── wsgi.py             # WSGI application entry point
 │   │   └── asgi.py             # ASGI application entry point
 │   └── calendar_app/           # Main application
-│       ├── models.py           # Unavailability model (date, start_time, end_time)
-│       ├── views.py            # calendar_view handles all form submissions
-│       ├── forms.py            # UnavailabilityForm and DeleteSelectedForm
+│       ├── models.py           # Unavailability, Group, MeetingProposal, MeetingResponse
+│       ├── views.py            # Personal calendar view
+│       ├── group_views.py      # Group management views
+│       ├── proposal_views.py   # Meeting proposal views
+│       ├── auth_views.py       # Authentication views
+│       ├── forms.py            # All forms (Unavailability, Group, Proposal, Join Code)
+│       ├── utils.py            # Utility functions (recurring patterns, free time calc)
 │       ├── urls.py             # App URL routing
+│       ├── tests/              # Test suite (232 tests)
+│       │   ├── test_forms.py
+│       │   ├── test_views.py
+│       │   └── ...
+│       ├── test_proposals.py   # Proposal-specific tests
+│       ├── test_utils.py       # Utility function tests
+│       ├── migrations/         # Database migrations (0001-0009)
 │       └── templates/calendar_app/
-│           └── calendar.html   # Single-page UI with embedded CSS
+│           ├── calendar.html           # Personal calendar UI
+│           ├── group_detail.html       # Group management UI
+│           ├── proposal_list.html      # Proposal list UI
+│           └── create_proposal.html    # Create proposal UI
 └── forms.py                    # Duplicate/older forms.py in root (outdated)
 ```
 
@@ -164,7 +187,7 @@ python manage.py test calendar_app.test_fuzz --verbosity=2
 python manage.py test calendar_app --verbosity=1
 ```
 
-**Expected Result:** All 172 tests (124 unit + 48 fuzz/integration) must pass
+**Expected Result:** All 232 tests (161 unit + 48 fuzz + 23 integration) must pass
 
 #### Step 5: Run Mutation Tests
 ```bash
@@ -252,12 +275,13 @@ coverage html  # Report in htmlcov/index.html
 5. Then continue to next test type
 
 ### Current Test Statistics
-- Unit tests: 124 tests covering models, forms, views, groups, authentication, and join codes
-- Fuzz/Integration tests: 48 tests (includes fuzz tests with ~350 generated cases + integration tests)
-- Total test cases: 172 tests
-- Code coverage: 89%+ overall (improved with join codes feature)
+- Unit tests: 161 tests covering models, forms, views, groups, authentication, join codes, recurring, and proposals
+- Fuzz tests: 48 tests (includes ~350 generated test cases)
+- Integration tests: 23 tests (workflow tests for proposals and multi-step operations)
+- Total test cases: 232 tests
+- Code coverage: 93%+ overall (includes all Phase 1-3 features)
 - Mutation score: 100% (8/8 mutations killed)
-- Test execution time: ~77 seconds
+- Test execution time: ~132 seconds
 
 ### New Feature Testing Policy
 
