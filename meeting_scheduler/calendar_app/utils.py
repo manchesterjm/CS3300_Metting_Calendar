@@ -19,7 +19,15 @@ Version: 2.3 (Join Codes + Recurring Unavailability Support)
 """
 from datetime import datetime, timedelta
 import secrets
+import logging
 from django.utils import timezone
+
+# Security: Maximum number of recurring instances to prevent DoS attacks
+# An attacker could set end_date far in future to exhaust database resources
+# Default limit: 365 instances (approximately 1 year of daily occurrences)
+MAX_RECURRING_INSTANCES = 365
+
+logger = logging.getLogger(__name__)
 
 
 def calculate_meeting_duration(start_time, end_time):
@@ -315,8 +323,13 @@ def generate_recurring_instances(recurring_entry, days_ahead=90):
     if end_date_str:
         try:
             end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
-        except ValueError:
-            # Invalid date format, ignore end_date
+        except (ValueError, TypeError) as e:
+            # Invalid date format - log error instead of silently ignoring
+            logger.warning(
+                'Invalid end_date format in recurring entry %s (user: %s): "%s" (error: %s). '
+                'Using default 90-day limit instead.',
+                recurring_entry.id, recurring_entry.user.username, end_date_str, e
+            )
             end_date = None
 
     # Calculate the limit date (90 days from now or end_date, whichever is sooner)
@@ -327,6 +340,7 @@ def generate_recurring_instances(recurring_entry, days_ahead=90):
 
     instances = []
     current_date = start_date
+    instance_count = 0
 
     # Day name mapping for weekly recurrence
     day_names = {
@@ -338,6 +352,16 @@ def generate_recurring_instances(recurring_entry, days_ahead=90):
     from calendar_app.models import Unavailability  # pylint: disable=import-outside-toplevel
 
     while current_date <= limit_date:
+        # Security check: Enforce maximum instance limit to prevent DoS
+        if instance_count >= MAX_RECURRING_INSTANCES:
+            logger.warning(
+                'Recurring instance limit reached for entry %s (user: %s): %d instances created. '
+                'Stopped generating at date %s.',
+                recurring_entry.id, recurring_entry.user.username,
+                instance_count, current_date
+            )
+            break
+
         should_create = False
 
         if frequency == 'daily':
@@ -350,6 +374,22 @@ def generate_recurring_instances(recurring_entry, days_ahead=90):
             # Create instances on specified weekdays
             weekday_name = day_names[current_date.weekday()]
             days_list = pattern.get('days', [])
+
+            # Security: Validate days_list (defense-in-depth)
+            if not isinstance(days_list, list):
+                logger.error(
+                    'Invalid days_list type in pattern for entry %s: %s',
+                    recurring_entry.id, type(days_list)
+                )
+                raise ValueError(f'days_list must be a list, got {type(days_list).__name__}')
+
+            valid_days = ['monday', 'tuesday', 'wednesday', 'thursday',
+                         'friday', 'saturday', 'sunday']
+            for day in days_list:
+                if day not in valid_days:
+                    logger.error('Invalid day in pattern for entry %s: %s', recurring_entry.id, day)
+                    raise ValueError(f'Invalid day in recurrence pattern: {day}')
+
             if weekday_name in days_list:
                 # Check if this week matches the interval
                 weeks_diff = (current_date - start_date).days // 7
@@ -377,6 +417,7 @@ def generate_recurring_instances(recurring_entry, days_ahead=90):
                 parent_recurring_entry=recurring_entry
             )
             instances.append(instance)
+            instance_count += 1
 
         # Move to next day
         current_date += timedelta(days=1)

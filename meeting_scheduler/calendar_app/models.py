@@ -12,8 +12,108 @@ Models:
 Version: 2.0 (Group Calendar Support)
 Last Updated: 2025-01-11
 """
+from datetime import datetime
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.db import models
+
+
+def validate_recurrence_pattern(value):
+    """
+    Validate recurrence_pattern JSON structure.
+
+    Security: Prevents malicious or malformed JSON patterns from causing application
+    crashes, infinite loops, or logic bypasses. Validates structure, data types,
+    and value ranges for all pattern fields.
+
+    Args:
+        value: JSON object (dict) containing recurrence pattern configuration
+
+    Raises:
+        ValidationError: If pattern structure or values are invalid
+
+    Valid Pattern Structure:
+        {
+            "frequency": "daily" | "weekly" | "monthly",
+            "interval": 1-52 (integer),
+            "days": ["monday", "tuesday", ...],  # Required for weekly
+            "end_date": "YYYY-MM-DD"  # Optional
+        }
+    """
+    if value is None:
+        return  # Null is allowed for non-recurring entries
+
+    # Validate value is a dictionary
+    if not isinstance(value, dict):
+        raise ValidationError(
+            'recurrence_pattern must be a JSON object (dictionary), '
+            f'got {type(value).__name__}.'
+        )
+
+    # Validate frequency field (required)
+    frequency = value.get('frequency')
+    valid_frequencies = ['daily', 'weekly', 'monthly']
+    if frequency not in valid_frequencies:
+        raise ValidationError(
+            f'Invalid frequency: "{frequency}". Must be one of: '
+            f'{", ".join(valid_frequencies)}.'
+        )
+
+    # Validate interval field (required)
+    interval = value.get('interval', 1)
+    if not isinstance(interval, int) or interval < 1 or interval > 52:
+        raise ValidationError(
+            f'Invalid interval: {interval}. Must be an integer between 1 and 52.'
+        )
+
+    # Validate days field (required for weekly frequency)
+    if frequency == 'weekly':
+        days = value.get('days', [])
+        if not isinstance(days, list):
+            raise ValidationError(
+                f'days must be a list, got {type(days).__name__}.'
+            )
+        if not days:
+            raise ValidationError(
+                'days cannot be empty for weekly frequency. '
+                'At least one day must be selected.'
+            )
+
+        valid_days = ['monday', 'tuesday', 'wednesday', 'thursday',
+                      'friday', 'saturday', 'sunday']
+        for day in days:
+            if not isinstance(day, str):
+                raise ValidationError(
+                    f'Each day must be a string, got {type(day).__name__} for value: {day}.'
+                )
+            if day not in valid_days:
+                raise ValidationError(
+                    f'Invalid day: "{day}". Must be one of: {", ".join(valid_days)}.'
+                )
+
+    # Validate end_date format (optional)
+    end_date = value.get('end_date')
+    if end_date is not None:
+        if not isinstance(end_date, str):
+            raise ValidationError(
+                f'end_date must be a string, got {type(end_date).__name__}.'
+            )
+        try:
+            datetime.strptime(end_date, '%Y-%m-%d')
+        except (ValueError, TypeError) as e:
+            raise ValidationError(
+                f'Invalid end_date format: "{end_date}". '
+                f'Must be YYYY-MM-DD format. Error: {e}'
+            ) from e
+
+    # Security: Disallow unknown keys to prevent injection attacks
+    allowed_keys = {'frequency', 'interval', 'days', 'end_date'}
+    unknown_keys = set(value.keys()) - allowed_keys
+    if unknown_keys:
+        raise ValidationError(
+            f'Unknown keys in recurrence pattern: {", ".join(unknown_keys)}. '
+            f'Allowed keys: {", ".join(allowed_keys)}.'
+        )
 
 
 class Unavailability(models.Model):
@@ -46,7 +146,12 @@ class Unavailability(models.Model):
     end_time = models.TimeField()
     description = models.CharField(max_length=200, blank=True, default='')
     is_recurring = models.BooleanField(default=False)
-    recurrence_pattern = models.JSONField(null=True, blank=True)
+    recurrence_pattern = models.JSONField(
+        null=True,
+        blank=True,
+        validators=[validate_recurrence_pattern],
+        help_text="JSON pattern defining recurrence schedule (frequency, interval, days, end_date)"
+    )
     parent_recurring_entry = models.ForeignKey(
         'self',
         null=True,

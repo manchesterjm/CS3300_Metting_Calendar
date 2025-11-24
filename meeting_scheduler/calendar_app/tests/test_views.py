@@ -297,18 +297,19 @@ class JoinGroupViewTest(TestCase):
         self.assertTrue(self.group.is_member(self.user2))
 
     def test_join_group_invalid_code(self):
-        """Test joining with invalid code"""
+        """Test joining with invalid code returns generic error (prevents information disclosure)"""
         self.client.login(username='joiner', password='pass123')
         post_data = {'join_code': 'INVALID9'}
         response = self.client.post(reverse('join_group'), post_data)
 
         # Should show error, not redirect
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'Invalid join code')
+        # Security: Generic message prevents code enumeration
+        self.assertContains(response, 'Invalid or inactive')
         self.assertFalse(self.group.is_member(self.user2))
 
     def test_join_group_disabled_code(self):
-        """Test joining with disabled code"""
+        """Test joining with disabled code returns generic error (prevents timing attacks)"""
         self.group.join_code_enabled = False
         self.group.save()
 
@@ -318,11 +319,12 @@ class JoinGroupViewTest(TestCase):
 
         # Should show error
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'no longer active')
+        # Security: Generic message prevents information disclosure
+        self.assertContains(response, 'Invalid or inactive')
         self.assertFalse(self.group.is_member(self.user2))
 
     def test_join_group_already_member(self):
-        """Test joining when already a member"""
+        """Test joining when already a member returns generic error (prevents information disclosure)"""
         # Add user2 to group first
         self.group.members.add(self.user2)
 
@@ -332,7 +334,8 @@ class JoinGroupViewTest(TestCase):
 
         # Should show error
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'already a member')
+        # Security: Generic message prevents membership disclosure
+        self.assertContains(response, 'Invalid or inactive')
 
 
 class GenerateJoinCodeViewTest(TestCase):

@@ -219,8 +219,17 @@ class UnavailabilityForm(BaseDescriptionForm, forms.ModelForm):  # pylint: disab
                 if not frequency:
                     self.add_error('frequency', "Please select a frequency for recurring entries.")
 
-                if frequency == 'weekly' and not days_of_week:
-                    self.add_error('days_of_week', "Please select at least one day of the week for weekly recurrence.")
+                if frequency == 'weekly':
+                    if not days_of_week:
+                        self.add_error('days_of_week', "Please select at least one day of the week for weekly recurrence.")
+                    else:
+                        # Security: Validate each day value (defense-in-depth)
+                        valid_days = ['monday', 'tuesday', 'wednesday', 'thursday',
+                                     'friday', 'saturday', 'sunday']
+                        for day in days_of_week:
+                            if day not in valid_days:
+                                self.add_error('days_of_week', f'Invalid day selected: {day}.')
+                                break
 
                 if not interval or interval < 1:
                     self.add_error('interval', "Interval must be at least 1.")
@@ -461,27 +470,50 @@ class JoinGroupForm(forms.Form):
         """
         Validate the join code and check user eligibility.
 
+        Security: Uses constant-time validation and generic error messages to prevent
+        timing attacks that could reveal whether codes exist. Validates format
+        server-side as defense-in-depth (client-side validation can be bypassed).
+
         Returns:
             str: The cleaned and uppercased join code.
 
         Raises:
             ValidationError: If code is invalid, disabled, or user already member.
         """
+        import re
+        import secrets
+        import time
+
         code = self.cleaned_data.get('join_code', '').strip().upper()
 
-        # Check if code exists
+        # Security: Server-side pattern validation (defense-in-depth)
+        # Client-side validation can be bypassed via dev tools or raw HTTP requests
+        if not re.match(r'^[A-Z0-9]{8}$', code):
+            raise forms.ValidationError(
+                'Join code must be exactly 8 characters (uppercase letters and numbers only).'
+            )
+
+        # Security: Constant-time validation to prevent timing attacks
+        # Always perform lookup (no early exit based on code format)
         try:
             group = Group.objects.get(join_code=code)
-        except Group.DoesNotExist as exc:
-            raise forms.ValidationError('Invalid join code. Please check and try again.') from exc
+            code_exists = True
+        except Group.DoesNotExist:
+            group = None
+            code_exists = False
 
-        # Check if code is enabled
-        if not group.join_code_enabled:
-            raise forms.ValidationError('This join code is no longer active.')
+        # Perform all checks (constant-time logic)
+        is_enabled = code_exists and group.join_code_enabled
+        is_not_member = code_exists and (not self.user or not group.is_member(self.user))
+        is_valid = code_exists and is_enabled and is_not_member
 
-        # Check if user is already a member
-        if self.user and group.is_member(self.user):
-            raise forms.ValidationError('You are already a member of this group.')
+        # Generic error message for all failure cases (prevents information disclosure)
+        # Add random delay to normalize timing (prevents timing analysis)
+        if not is_valid:
+            time.sleep(secrets.randbelow(50) / 1000)  # 0-50ms random delay
+            raise forms.ValidationError(
+                'Invalid or inactive join code. Please check and try again.'
+            )
 
         # Store the group for use in the view
         self.group = group

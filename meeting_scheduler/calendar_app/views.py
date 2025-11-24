@@ -15,12 +15,16 @@ Version: 2.0
 Security: All views require authentication and implement CSRF protection
 """
 import datetime
+import logging
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import render, redirect
+from django.db import transaction, DatabaseError
 from .forms import UnavailabilityForm, DeleteSelectedForm
 from .models import Unavailability
 from .utils import calculate_free_time_slots
+
+logger = logging.getLogger(__name__)
 
 
 @login_required
@@ -105,13 +109,48 @@ def calendar_view(request):
                 # Generate recurring instances if this is a recurring entry
                 if is_recurring:
                     from calendar_app.utils import generate_recurring_instances  # pylint: disable=import-outside-toplevel
-                    instances = generate_recurring_instances(new_record)
-                    instance_count = len(instances)
-                    messages.success(
-                        request,
-                        f'Recurring entry created: {instance_count} instances generated<br>'
-                        f'Starting {new_record.date} from {new_record.start_time} to {new_record.end_time}'
-                    )
+                    try:
+                        instances = generate_recurring_instances(new_record)
+                        instance_count = len(instances)
+
+                        if instance_count == 0:
+                            messages.warning(
+                                request,
+                                'Recurring entry created, but no instances were generated. '
+                                'Check your recurrence pattern settings.'
+                            )
+                        else:
+                            messages.success(
+                                request,
+                                f'Recurring entry created: {instance_count} instances generated<br>'
+                                f'Starting {new_record.date} from {new_record.start_time} to {new_record.end_time}'
+                            )
+                    except ValueError as e:
+                        # Validation error in pattern
+                        logger.error(
+                            'Invalid recurring pattern for entry %s (user: %s): %s',
+                            new_record.id, request.user.username, e
+                        )
+                        messages.error(
+                            request,
+                            f'Error creating recurring instances: {e} '
+                            'The master entry was created but instances could not be generated.'
+                        )
+                        # Optionally delete the master entry
+                        # new_record.delete()
+                    except DatabaseError as e:
+                        # Database error during instance creation
+                        logger.error(
+                            'Database error creating recurring instances for entry %s (user: %s): %s',
+                            new_record.id, request.user.username, e
+                        )
+                        messages.error(
+                            request,
+                            'A database error occurred while generating recurring instances. '
+                            'Please try again later or contact support if the problem persists.'
+                        )
+                        # Optionally delete the master entry
+                        # new_record.delete()
                 else:
                     # Success message for non-recurring entry
                     if new_record.description:
@@ -200,51 +239,75 @@ def calendar_view(request):
                 if entry_ids:
                     entry_ids = [int(e_id) for e_id in entry_ids]
 
-                    # Handle recurring series deletion if requested
-                    if delete_series:
-                        entries_to_delete = Unavailability.objects.filter(
-                            user=request.user, id__in=entry_ids
-                        )
-                        # Collect parent entries and their instances
-                        parent_ids = set()
-                        for entry in entries_to_delete:
-                            if entry.parent_recurring_entry:
-                                # This is an instance, get the parent
-                                parent_ids.add(entry.parent_recurring_entry.id)
-                            elif entry.is_recurring:
-                                # This is a parent entry
-                                parent_ids.add(entry.id)
+                    # Security: Wrap deletion in transaction to ensure atomicity
+                    # Prevents partial deletions if server crashes or database errors occur
+                    try:
+                        with transaction.atomic():
+                            # Handle recurring series deletion if requested
+                            if delete_series:
+                                entries_to_delete = Unavailability.objects.filter(
+                                    user=request.user, id__in=entry_ids
+                                )
+                                # Collect parent entries and their instances
+                                parent_ids = set()
+                                for entry in entries_to_delete:
+                                    if entry.parent_recurring_entry:
+                                        # This is an instance, get the parent
+                                        parent_ids.add(entry.parent_recurring_entry.id)
+                                    elif entry.is_recurring:
+                                        # This is a parent entry
+                                        parent_ids.add(entry.id)
 
-                        # Delete all parents and their instances
-                        for parent_id in parent_ids:
-                            parent = Unavailability.objects.filter(
-                                user=request.user, id=parent_id
-                            ).first()
-                            if parent:
-                                # Delete all instances first
+                                # Optimized: Use bulk deletes instead of loop
+                                if parent_ids:
+                                    # Delete all instances in one query
+                                    Unavailability.objects.filter(
+                                        user=request.user,
+                                        parent_recurring_entry_id__in=parent_ids
+                                    ).delete()
+                                    # Delete all parents in one query
+                                    Unavailability.objects.filter(
+                                        user=request.user,
+                                        id__in=parent_ids
+                                    ).delete()
+
+                                # Also delete any non-recurring entries in the selection
                                 Unavailability.objects.filter(
                                     user=request.user,
-                                    parent_recurring_entry=parent
+                                    id__in=entry_ids,
+                                    is_recurring=False,
+                                    parent_recurring_entry__isnull=True
                                 ).delete()
-                                # Then delete the parent
-                                parent.delete()
 
-                        # Also delete any non-recurring entries in the selection
-                        Unavailability.objects.filter(
-                            user=request.user,
-                            id__in=entry_ids,
-                            is_recurring=False,
-                            parent_recurring_entry__isnull=True
-                        ).delete()
-                    else:
-                        # Normal deletion - only delete selected entries
-                        count_before = Unavailability.objects.filter(
-                            user=request.user, id__in=entry_ids).count()
-                        print("Count before deletion:", count_before)
-                        Unavailability.objects.filter(user=request.user, id__in=entry_ids).delete()
-                        count_after = Unavailability.objects.filter(
-                            user=request.user, id__in=entry_ids).count()
-                        print("Count after deletion:", count_after)
+                                logger.info(
+                                    'User %s deleted recurring series: %d parents with their instances',
+                                    request.user.username, len(parent_ids)
+                                )
+                            else:
+                                # Normal deletion - only delete selected entries
+                                count_before = Unavailability.objects.filter(
+                                    user=request.user, id__in=entry_ids).count()
+                                print("Count before deletion:", count_before)
+                                Unavailability.objects.filter(
+                                    user=request.user, id__in=entry_ids
+                                ).delete()
+                                count_after = Unavailability.objects.filter(
+                                    user=request.user, id__in=entry_ids).count()
+                                print("Count after deletion:", count_after)
+                                logger.info(
+                                    'User %s deleted %d entries: %s',
+                                    request.user.username, count_before, entry_ids
+                                )
+                    except DatabaseError as e:
+                        logger.error(
+                            'Error deleting entries for user %s: %s',
+                            request.user.username, e
+                        )
+                        messages.error(
+                            request,
+                            'An error occurred while deleting entries. Please try again.'
+                        )
+                        return redirect('calendar')
                 else:
                     print("No entries selected for deletion.")  # we didn't select anything
                 return redirect('calendar')  # return to calendar initial view

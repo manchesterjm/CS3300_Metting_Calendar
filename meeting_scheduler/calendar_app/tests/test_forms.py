@@ -219,15 +219,16 @@ class JoinGroupFormTest(TestCase):
         self.assertEqual(form.group, self.group)
 
     def test_form_with_invalid_code(self):
-        """Test form rejects invalid join code"""
+        """Test form rejects invalid join code with generic error message"""
         form_data = {'join_code': 'INVALID1'}
         form = JoinGroupForm(data=form_data, user=self.user2)
         self.assertFalse(form.is_valid())
         self.assertIn('join_code', form.errors)
-        self.assertIn('Invalid join code', str(form.errors['join_code']))
+        # Security: Generic message prevents information disclosure
+        self.assertIn('Invalid or inactive', str(form.errors['join_code']))
 
     def test_form_with_disabled_code(self):
-        """Test form rejects disabled join code"""
+        """Test form rejects disabled join code with generic error message"""
         self.group.join_code_enabled = False
         self.group.save()
 
@@ -235,15 +236,17 @@ class JoinGroupFormTest(TestCase):
         form = JoinGroupForm(data=form_data, user=self.user2)
         self.assertFalse(form.is_valid())
         self.assertIn('join_code', form.errors)
-        self.assertIn('no longer active', str(form.errors['join_code']))
+        # Security: Generic message prevents timing attacks
+        self.assertIn('Invalid or inactive', str(form.errors['join_code']))
 
     def test_form_with_existing_member(self):
-        """Test form rejects code when user is already a member"""
+        """Test form rejects code when user is already a member with generic error message"""
         form_data = {'join_code': 'ABC12345'}
         form = JoinGroupForm(data=form_data, user=self.user1)  # user1 is already a member
         self.assertFalse(form.is_valid())
         self.assertIn('join_code', form.errors)
-        self.assertIn('already a member', str(form.errors['join_code']))
+        # Security: Generic message prevents information disclosure
+        self.assertIn('Invalid or inactive', str(form.errors['join_code']))
 
     def test_form_normalizes_code_case(self):
         """Test form converts code to uppercase"""
