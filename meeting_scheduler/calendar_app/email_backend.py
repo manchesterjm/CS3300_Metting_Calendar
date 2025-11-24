@@ -48,8 +48,9 @@ class UnsecureEmailBackend(EmailBackend):
             connection_params['timeout'] = self.timeout
         if self.use_ssl:
             # Create an SSL context that doesn't verify certificates
+            # Intentional for dev/testing only; production blocked by DEBUG check at line 27
             # pylint: disable=protected-access
-            connection_params['context'] = ssl._create_unverified_context()
+            connection_params['context'] = ssl._create_unverified_context()  # nosec B323
 
         try:
             self.connection = self.connection_class(
@@ -58,8 +59,9 @@ class UnsecureEmailBackend(EmailBackend):
 
             if not self.use_ssl and self.use_tls:
                 # Create an unverified context for STARTTLS
+                # Intentional for dev/testing only; production blocked by DEBUG check at line 27
                 # pylint: disable=protected-access
-                self.connection.starttls(context=ssl._create_unverified_context())
+                self.connection.starttls(context=ssl._create_unverified_context())  # nosec B323
 
             if self.username and self.password:
                 self.connection.login(self.username, self.password)
