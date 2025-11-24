@@ -61,6 +61,11 @@ pytest.xml
 *.key
 *.crt
 .semgrep_cache/
+bandit-test.json
+bandit-results.json
+semgrep-results.json
+safety-results.json
+pip-audit-results.json
 
 # Local settings
 local_settings.py
