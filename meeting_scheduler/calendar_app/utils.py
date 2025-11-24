@@ -9,10 +9,12 @@ Functions:
     - is_business_hours: Check if time is within business hours
     - get_next_available_slot: Find next available meeting slot
     - generate_password: Generate secure random password
+    - calculate_free_time_slots: Calculate free 30-minute time slots
+    - generate_join_code: Generate unique 8-character group join codes
 
 Performance Note: All functions are designed to be stateless and thread-safe
 for optimal performance in multi-user environments.
-Version: 2.1
+Version: 2.2
 """
 from datetime import datetime, timedelta
 import secrets
@@ -227,3 +229,34 @@ def calculate_free_time_slots(selected_date, unavail_list):
                   if slot not in taken_slots]
 
     return free_times
+
+
+def generate_join_code():
+    """
+    Generate a unique 8-character alphanumeric join code for group invitations.
+
+    The code consists of uppercase letters and digits (no lowercase to avoid
+    confusion with uppercase, e.g., 'O' vs 'o', 'I' vs 'l').
+
+    Excludes ambiguous characters: 0, O, I, 1 to prevent user confusion.
+
+    Uses secrets module for cryptographically strong random generation.
+
+    Returns:
+        str: 8-character join code (e.g., "AB2C3DEF")
+
+    Example:
+        >>> code = generate_join_code()
+        >>> len(code)
+        8
+        >>> code.isalnum() and code.isupper()
+        True
+    """
+    # Character set: uppercase letters + digits, excluding ambiguous chars
+    # Excluded: 0, O, I, 1 (easily confused with each other)
+    chars = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ'  # 32 characters
+
+    # Generate 8-character code
+    code = ''.join(secrets.choice(chars) for _ in range(8))
+
+    return code

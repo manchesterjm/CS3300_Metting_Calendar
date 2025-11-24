@@ -4,8 +4,8 @@ URL configuration for the calendar application.
 This module defines URL patterns for routing requests to the calendar
 application views, including authentication and password reset endpoints.
 
-Version: 2.0 (Group Calendar Support)
-Last Updated: 2025-01-11
+Version: 2.1 (Join Code Support)
+Last Updated: 2025-11-23
 """
 from django.urls import path
 from django.contrib.auth import views as auth_views
@@ -21,7 +21,10 @@ from .group_views import (
     group_calendar_view,
     group_add_member_view,
     group_remove_member_view,
-    group_delete_view
+    group_delete_view,
+    join_group_view,
+    generate_join_code_view,
+    toggle_join_code_view
 )
 
 urlpatterns = [
@@ -39,12 +42,15 @@ urlpatterns = [
     # Group URLs
     path('groups/', group_list_view, name='group_list'),
     path('groups/create/', group_create_view, name='group_create'),
+    path('groups/join/', join_group_view, name='join_group'),
     path('groups/<int:group_id>/', group_detail_view, name='group_detail'),
     path('groups/<int:group_id>/calendar/', group_calendar_view, name='group_calendar'),
     path('groups/<int:group_id>/add-member/', group_add_member_view, name='group_add_member'),
     path('groups/<int:group_id>/remove-member/<int:user_id>/',
          group_remove_member_view, name='group_remove_member'),
     path('groups/<int:group_id>/delete/', group_delete_view, name='group_delete'),
+    path('groups/<int:group_id>/generate-join-code/', generate_join_code_view, name='generate_join_code'),
+    path('groups/<int:group_id>/toggle-join-code/', toggle_join_code_view, name='toggle_join_code'),
 
     # Password reset URLs
     path('password-reset/',
