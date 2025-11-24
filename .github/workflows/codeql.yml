@@ -43,11 +43,15 @@ jobs:
       fail-fast: false
       matrix:
         include:
-        # Only analyze Python - this is a Django (Python) project
-        # Removed javascript-typescript: only 1 JS file (service-worker.js)
-        # Removed actions: minimal GitHub Actions code
+        # Analyze Python (primary codebase language)
         - language: python
           build-mode: none
+        # Analyze JavaScript/TypeScript (service-worker.js is security-critical)
+        # Service workers intercept network requests and must be security scanned
+        - language: javascript-typescript
+          build-mode: none
+        # Note: Removed 'actions' language - minimal GitHub Actions code
+        # Python and JS/TS are the security-relevant languages for this project
         # CodeQL supports the following values keywords for 'language': 'actions', 'c-cpp', 'csharp', 'go', 'java-kotlin', 'javascript-typescript', 'python', 'ruby', 'rust', 'swift'
         # Use `c-cpp` to analyze code written in C, C++ or both
         # Use 'java-kotlin' to analyze code written in Java, Kotlin or both
