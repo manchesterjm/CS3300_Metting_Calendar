@@ -96,6 +96,30 @@ ul li label {
         margin: 5px 0;
     }
 }
+
+/* Recurring fields styling */
+.recurrence-fields {
+    background-color: #e8f6f3;
+    padding: 15px;
+    border-radius: 5px;
+    border-left: 4px solid #1abc9c;
+    margin-top: 10px;
+}
+
+.recurrence-fields.hidden {
+    display: none;
+}
+
+#id_days_of_week label {
+    display: inline-block;
+    width: auto;
+    margin-right: 15px;
+    font-weight: normal;
+}
+
+#id_days_of_week input[type="checkbox"] {
+    margin-right: 5px;
+}
 {% endblock %}
 
 {% block content %}
@@ -160,6 +184,77 @@ document.addEventListener('DOMContentLoaded', function() {
         setTimeout(function() {
             entriesResults.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }, 100);
+    }
+
+    // Handle recurring fields show/hide
+    const isRecurringCheckbox = document.getElementById('id_is_recurring');
+    const frequencyField = document.getElementById('id_frequency');
+
+    if (isRecurringCheckbox && frequencyField) {
+        // Get all recurrence-related fields
+        const recurrenceFields = [
+            'id_frequency',
+            'id_days_of_week',
+            'id_interval',
+            'id_recurrence_end_date'
+        ];
+
+        // Wrap recurrence fields in a div for easier show/hide
+        const firstRecurField = document.getElementById('id_frequency').closest('p');
+        if (firstRecurField && !firstRecurField.parentElement.classList.contains('recurrence-fields')) {
+            const wrapper = document.createElement('div');
+            wrapper.classList.add('recurrence-fields', 'hidden');
+
+            recurrenceFields.forEach(function(fieldId) {
+                const field = document.getElementById(fieldId);
+                if (field) {
+                    const fieldPara = field.closest('p');
+                    if (fieldPara) {
+                        wrapper.appendChild(fieldPara);
+                    }
+                }
+            });
+
+            // Insert wrapper after is_recurring field
+            const isRecurringPara = isRecurringCheckbox.closest('p');
+            isRecurringPara.parentNode.insertBefore(wrapper, isRecurringPara.nextSibling);
+        }
+
+        // Function to toggle recurrence fields
+        function toggleRecurrenceFields() {
+            const wrapper = document.querySelector('.recurrence-fields');
+            if (wrapper) {
+                if (isRecurringCheckbox.checked) {
+                    wrapper.classList.remove('hidden');
+                } else {
+                    wrapper.classList.add('hidden');
+                }
+            }
+        }
+
+        // Initial state
+        toggleRecurrenceFields();
+
+        // Listen for changes
+        isRecurringCheckbox.addEventListener('change', toggleRecurrenceFields);
+
+        // Show/hide days_of_week based on frequency selection
+        const daysOfWeekField = document.getElementById('id_days_of_week');
+        if (daysOfWeekField) {
+            function toggleDaysOfWeek() {
+                const daysOfWeekPara = daysOfWeekField.closest('p');
+                if (daysOfWeekPara) {
+                    if (frequencyField.value === 'weekly') {
+                        daysOfWeekPara.style.display = 'block';
+                    } else {
+                        daysOfWeekPara.style.display = 'none';
+                    }
+                }
+            }
+
+            toggleDaysOfWeek();
+            frequencyField.addEventListener('change', toggleDaysOfWeek);
+        }
     }
 });
 </script>

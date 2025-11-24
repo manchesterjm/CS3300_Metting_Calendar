@@ -239,13 +239,21 @@ class DeleteSelectedForm(forms.Form):
     entries to delete. The choices are populated dynamically in the view
     based on the last five entries in the database.
 
+    Supports deleting entire recurring series when an instance is selected.
+
     Attributes:
         entry_ids: Multiple choice field containing entry IDs for deletion.
             Uses checkboxes for user-friendly multi-selection.
+        delete_series: Boolean field to delete entire recurring series.
     """
     entry_ids = forms.MultipleChoiceField(
         required=False,
         widget=forms.CheckboxSelectMultiple
+    )
+    delete_series = forms.BooleanField(
+        required=False,
+        label='Delete entire recurring series (if applicable)',
+        help_text='If checked, will delete the master entry and all instances of any recurring series'
     )
 
 

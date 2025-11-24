@@ -193,19 +193,58 @@ def calendar_view(request):
 
             if form_delete.is_valid():
                 entry_ids = form_delete.cleaned_data['entry_ids']
+                delete_series = form_delete.cleaned_data.get('delete_series', False)
                 # Debug output, I left this in to show what I did to catch errors,
                 # but it should not be needed anymore. It may be good for future devs.
                 print("Delete form cleaned data:", entry_ids)
                 if entry_ids:
                     entry_ids = [int(e_id) for e_id in entry_ids]
-                    # Only delete entries belonging to the current user
-                    count_before = Unavailability.objects.filter(
-                        user=request.user, id__in=entry_ids).count()
-                    print("Count before deletion:", count_before)
-                    Unavailability.objects.filter(user=request.user, id__in=entry_ids).delete()
-                    count_after = Unavailability.objects.filter(
-                        user=request.user, id__in=entry_ids).count()
-                    print("Count after deletion:", count_after)
+
+                    # Handle recurring series deletion if requested
+                    if delete_series:
+                        entries_to_delete = Unavailability.objects.filter(
+                            user=request.user, id__in=entry_ids
+                        )
+                        # Collect parent entries and their instances
+                        parent_ids = set()
+                        for entry in entries_to_delete:
+                            if entry.parent_recurring_entry:
+                                # This is an instance, get the parent
+                                parent_ids.add(entry.parent_recurring_entry.id)
+                            elif entry.is_recurring:
+                                # This is a parent entry
+                                parent_ids.add(entry.id)
+
+                        # Delete all parents and their instances
+                        for parent_id in parent_ids:
+                            parent = Unavailability.objects.filter(
+                                user=request.user, id=parent_id
+                            ).first()
+                            if parent:
+                                # Delete all instances first
+                                Unavailability.objects.filter(
+                                    user=request.user,
+                                    parent_recurring_entry=parent
+                                ).delete()
+                                # Then delete the parent
+                                parent.delete()
+
+                        # Also delete any non-recurring entries in the selection
+                        Unavailability.objects.filter(
+                            user=request.user,
+                            id__in=entry_ids,
+                            is_recurring=False,
+                            parent_recurring_entry__isnull=True
+                        ).delete()
+                    else:
+                        # Normal deletion - only delete selected entries
+                        count_before = Unavailability.objects.filter(
+                            user=request.user, id__in=entry_ids).count()
+                        print("Count before deletion:", count_before)
+                        Unavailability.objects.filter(user=request.user, id__in=entry_ids).delete()
+                        count_after = Unavailability.objects.filter(
+                            user=request.user, id__in=entry_ids).count()
+                        print("Count after deletion:", count_after)
                 else:
                     print("No entries selected for deletion.")  # we didn't select anything
                 return redirect('calendar')  # return to calendar initial view
