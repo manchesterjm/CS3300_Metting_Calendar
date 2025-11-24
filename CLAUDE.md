@@ -1015,7 +1015,7 @@ After deployment:
 - Test all features (auth, calendar, groups, email)
 - Monitor error logs at `~/logs/django_error.log`
 - Set up database backup schedule
-- Consider implementing meeting proposal feature
+- Review ROADMAP.md for planned feature enhancements
 
 ---
 

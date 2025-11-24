@@ -14,9 +14,12 @@ Views:
     - group_add_member_view: Add members to group
     - group_remove_member_view: Remove members from group
     - group_delete_view: Delete entire group
+    - join_group_view: Join a group using a join code
+    - generate_join_code_view: Generate/regenerate join code for group (owner only)
+    - toggle_join_code_view: Enable/disable join code for group (owner only)
 
 Features: Role-based access control (owner vs member permissions).
-Version: 2.0
+Version: 2.1 (Join Code Support)
 Security: All views require authentication and verify group membership
 """
 import datetime
@@ -30,10 +33,11 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.http import HttpResponseServerError
 from .forms import (
     GroupCreateForm,
-    AddMemberForm
+    AddMemberForm,
+    JoinGroupForm
 )
 from .models import Group, Unavailability
-from .utils import calculate_free_time_slots
+from .utils import calculate_free_time_slots, generate_join_code
 
 # Configure logger for group calendar module
 logger = logging.getLogger(__name__)
@@ -357,3 +361,133 @@ def group_delete_view(request, group_id):
     return render(request, 'calendar_app/group_delete.html', {
         'group': group,
     })
+
+
+@login_required
+def join_group_view(request):
+    """
+    Allow users to join a group using a join code.
+
+    Displays a form where users can enter an 8-character join code to join a group.
+    Validates the code and adds the user as a member if successful.
+
+    Args:
+        request: HttpRequest object containing metadata about the request.
+
+    Returns:
+        HttpResponse: Rendered join group template or redirect to group detail.
+
+    Redirects:
+        - After successful join to group detail view
+    """
+    if request.method == 'POST':
+        form = JoinGroupForm(request.POST, user=request.user)
+        if form.is_valid():
+            # Get the group from the form (set during validation)
+            group = form.group
+
+            # Add user to group
+            group.members.add(request.user)
+            logger.info('User %s joined group %s via join code', request.user.username, group.id)
+            messages.success(request, f'Successfully joined group "{group.name}"!')
+            return redirect('group_detail', group_id=group.id)
+    else:
+        form = JoinGroupForm(user=request.user)
+
+    return render(request, 'calendar_app/join_group.html', {
+        'form': form,
+    })
+
+
+@login_required
+def generate_join_code_view(request, group_id):
+    """
+    Generate or regenerate a join code for a group (owner only).
+
+    Creates a new unique join code for the group, replacing any existing code.
+    Only the group owner can perform this action.
+
+    Args:
+        request: HttpRequest object containing metadata about the request.
+        group_id: Primary key of the group to generate code for.
+
+    Returns:
+        HttpResponse: Redirect to group detail view.
+
+    Redirects:
+        - After successful code generation to group detail view
+
+    Raises:
+        Http404: If group doesn't exist.
+        PermissionDenied: If user is not the group owner.
+    """
+    group = get_object_or_404(Group, id=group_id)
+
+    # Check if user is the owner
+    if not group.is_owner(request.user):
+        logger.warning('Permission denied: User %s attempted to generate join code for group %s',
+                      request.user.username, group.id)
+        raise PermissionDenied('Only the group owner can generate join codes.')
+
+    if request.method == 'POST':
+        # Generate unique join code
+        max_attempts = 10
+        for _ in range(max_attempts):
+            code = generate_join_code()
+            # Check if code is unique
+            if not Group.objects.filter(join_code=code).exists():
+                group.join_code = code
+                group.join_code_enabled = True
+                group.save()
+                logger.info('User %s generated join code for group %s', request.user.username, group.id)
+                messages.success(request, f'Join code generated: {code}')
+                return redirect('group_detail', group_id=group.id)
+
+        # If we couldn't generate unique code after max attempts
+        messages.error(request, 'Failed to generate unique code. Please try again.')
+        return redirect('group_detail', group_id=group.id)
+
+    # GET request - show confirmation or redirect
+    return redirect('group_detail', group_id=group.id)
+
+
+@login_required
+def toggle_join_code_view(request, group_id):
+    """
+    Enable or disable the join code for a group (owner only).
+
+    Toggles the join_code_enabled flag without changing the actual code.
+    This allows owners to temporarily disable joining without losing the code.
+
+    Args:
+        request: HttpRequest object containing metadata about the request.
+        group_id: Primary key of the group to toggle code for.
+
+    Returns:
+        HttpResponse: Redirect to group detail view.
+
+    Redirects:
+        - After toggle to group detail view
+
+    Raises:
+        Http404: If group doesn't exist.
+        PermissionDenied: If user is not the group owner.
+    """
+    group = get_object_or_404(Group, id=group_id)
+
+    # Check if user is the owner
+    if not group.is_owner(request.user):
+        logger.warning('Permission denied: User %s attempted to toggle join code for group %s',
+                      request.user.username, group.id)
+        raise PermissionDenied('Only the group owner can manage join codes.')
+
+    if request.method == 'POST':
+        group.join_code_enabled = not group.join_code_enabled
+        group.save()
+
+        status = 'enabled' if group.join_code_enabled else 'disabled'
+        logger.info('User %s %s join code for group %s', request.user.username, status, group.id)
+        messages.success(request, f'Join code {status}.')
+        return redirect('group_detail', group_id=group.id)
+
+    return redirect('group_detail', group_id=group.id)

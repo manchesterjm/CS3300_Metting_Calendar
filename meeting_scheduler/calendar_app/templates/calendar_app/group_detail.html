@@ -135,6 +135,112 @@ h2 {
     border-radius: 8px;
 }
 
+.join-code-section {
+    background-color: #e8f4f8;
+    border-left: 4px solid #3498db;
+    padding: 20px;
+    margin: 30px 0;
+    border-radius: 4px;
+}
+
+.join-code-section h3 {
+    color: #2c3e50;
+    margin: 0 0 15px 0;
+    font-size: 18px;
+}
+
+.join-code-display {
+    background-color: white;
+    padding: 15px;
+    border-radius: 4px;
+    margin: 15px 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.code-value {
+    font-family: 'Courier New', monospace;
+    font-size: 24px;
+    letter-spacing: 3px;
+    color: #2c3e50;
+    font-weight: bold;
+}
+
+.code-status {
+    font-size: 12px;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-weight: bold;
+}
+
+.code-status.enabled {
+    background-color: #d4edda;
+    color: #155724;
+}
+
+.code-status.disabled {
+    background-color: #f8d7da;
+    color: #721c24;
+}
+
+.join-code-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 15px;
+    flex-wrap: wrap;
+}
+
+.join-code-actions form {
+    display: inline-block;
+}
+
+.join-code-actions button,
+.join-code-actions .copy-btn {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background-color 0.3s;
+}
+
+.generate-code-btn {
+    background-color: #1abc9c;
+    color: white;
+}
+
+.generate-code-btn:hover {
+    background-color: #16a085;
+}
+
+.toggle-code-btn {
+    background-color: #f39c12;
+    color: white;
+}
+
+.toggle-code-btn:hover {
+    background-color: #e67e22;
+}
+
+.copy-btn {
+    background-color: #3498db;
+    color: white;
+}
+
+.copy-btn:hover {
+    background-color: #2980b9;
+}
+
+.join-code-info {
+    font-size: 14px;
+    color: #555;
+    margin-top: 10px;
+    line-height: 1.6;
+}
+
 @media (max-width: 768px) {
     .action-buttons {
         flex-direction: column;
@@ -176,6 +282,64 @@ h2 {
         {% endif %}
         <a href="{% url 'group_list' %}" class="back-btn">Back to Groups</a>
     </div>
+
+    {% if is_owner %}
+    <div class="join-code-section">
+        <h3>📋 Join Code</h3>
+        {% if group.join_code %}
+            <div class="join-code-display">
+                <span class="code-value">{{ group.join_code }}</span>
+                <span class="code-status {% if group.join_code_enabled %}enabled{% else %}disabled{% endif %}">
+                    {% if group.join_code_enabled %}ACTIVE{% else %}DISABLED{% endif %}
+                </span>
+            </div>
+            <div class="join-code-actions">
+                <button onclick="copyJoinCode('{{ group.join_code }}')" class="copy-btn">Copy Code</button>
+                <form method="post" action="{% url 'toggle_join_code' group.id %}" style="display: inline;">
+                    {% csrf_token %}
+                    <button type="submit" class="toggle-code-btn">
+                        {% if group.join_code_enabled %}Disable Code{% else %}Enable Code{% endif %}
+                    </button>
+                </form>
+                <form method="post" action="{% url 'generate_join_code' group.id %}" style="display: inline;">
+                    {% csrf_token %}
+                    <button type="submit" class="generate-code-btn" onclick="return confirm('Generate a new join code? The old code will no longer work.');">
+                        Regenerate Code
+                    </button>
+                </form>
+            </div>
+            <p class="join-code-info">
+                Share this code with team members to let them join the group instantly.
+                They can use it at <strong>/groups/join/</strong> or from the Groups page.
+            </p>
+        {% else %}
+            <p class="join-code-info">No join code generated yet. Generate one to allow easy group joining.</p>
+            <div class="join-code-actions">
+                <form method="post" action="{% url 'generate_join_code' group.id %}">
+                    {% csrf_token %}
+                    <button type="submit" class="generate-code-btn">Generate Join Code</button>
+                </form>
+            </div>
+        {% endif %}
+    </div>
+
+    <script>
+    function copyJoinCode(code) {
+        navigator.clipboard.writeText(code).then(function() {
+            alert('Join code ' + code + ' copied to clipboard!');
+        }, function(err) {
+            // Fallback for older browsers
+            const textArea = document.createElement("textarea");
+            textArea.value = code;
+            document.body.appendChild(textArea);
+            textArea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textArea);
+            alert('Join code ' + code + ' copied to clipboard!');
+        });
+    }
+    </script>
+    {% endif %}
 
     <h2>Members ({{ members.count }})</h2>
 

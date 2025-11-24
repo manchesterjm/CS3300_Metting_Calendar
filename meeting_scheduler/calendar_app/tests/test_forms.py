@@ -7,6 +7,7 @@ Tests for:
 - GroupCreateForm
 - AddMemberForm
 - GroupUnavailabilityForm
+- JoinGroupForm
 
 Covers form validation, field validation, and error handling.
 """
@@ -19,7 +20,8 @@ from calendar_app.forms import (
     DeleteSelectedForm,
     GroupCreateForm,
     AddMemberForm,
-    GroupUnavailabilityForm
+    GroupUnavailabilityForm,
+    JoinGroupForm
 )
 
 
@@ -194,3 +196,84 @@ class GroupUnavailabilityFormTest(TestCase):
         self.assertIn('start_time', form.fields)
         self.assertIn('end_time', form.fields)
         self.assertIn('description', form.fields)
+
+
+class JoinGroupFormTest(TestCase):
+    """Tests for the JoinGroupForm"""
+
+    def setUp(self):
+        """Set up test data"""
+        self.user1 = User.objects.create_user(username='user1', password='pass123')
+        self.user2 = User.objects.create_user(username='user2', password='pass123')
+        self.group = Group.objects.create(name='Test Group', created_by=self.user1)
+        self.group.join_code = 'ABC12345'
+        self.group.join_code_enabled = True
+        self.group.save()
+        self.group.members.add(self.user1)
+
+    def test_form_with_valid_code(self):
+        """Test form validation with valid join code"""
+        form_data = {'join_code': 'ABC12345'}
+        form = JoinGroupForm(data=form_data, user=self.user2)
+        self.assertTrue(form.is_valid())
+        self.assertEqual(form.group, self.group)
+
+    def test_form_with_invalid_code(self):
+        """Test form rejects invalid join code"""
+        form_data = {'join_code': 'INVALID1'}
+        form = JoinGroupForm(data=form_data, user=self.user2)
+        self.assertFalse(form.is_valid())
+        self.assertIn('join_code', form.errors)
+        self.assertIn('Invalid join code', str(form.errors['join_code']))
+
+    def test_form_with_disabled_code(self):
+        """Test form rejects disabled join code"""
+        self.group.join_code_enabled = False
+        self.group.save()
+
+        form_data = {'join_code': 'ABC12345'}
+        form = JoinGroupForm(data=form_data, user=self.user2)
+        self.assertFalse(form.is_valid())
+        self.assertIn('join_code', form.errors)
+        self.assertIn('no longer active', str(form.errors['join_code']))
+
+    def test_form_with_existing_member(self):
+        """Test form rejects code when user is already a member"""
+        form_data = {'join_code': 'ABC12345'}
+        form = JoinGroupForm(data=form_data, user=self.user1)  # user1 is already a member
+        self.assertFalse(form.is_valid())
+        self.assertIn('join_code', form.errors)
+        self.assertIn('already a member', str(form.errors['join_code']))
+
+    def test_form_normalizes_code_case(self):
+        """Test form converts code to uppercase"""
+        form_data = {'join_code': 'abc12345'}  # Lowercase
+        form = JoinGroupForm(data=form_data, user=self.user2)
+        self.assertTrue(form.is_valid())
+        self.assertEqual(form.cleaned_data['join_code'], 'ABC12345')
+
+    def test_form_strips_whitespace(self):
+        """Test form strips whitespace from code"""
+        form_data = {'join_code': '  ABC12345  '}
+        form = JoinGroupForm(data=form_data, user=self.user2)
+        self.assertTrue(form.is_valid())
+        self.assertEqual(form.cleaned_data['join_code'], 'ABC12345')
+
+    def test_form_requires_code(self):
+        """Test form requires join code"""
+        form_data = {'join_code': ''}
+        form = JoinGroupForm(data=form_data, user=self.user2)
+        self.assertFalse(form.is_valid())
+        self.assertIn('join_code', form.errors)
+
+    def test_form_validates_code_length(self):
+        """Test form validates code length"""
+        # Too short
+        form_data = {'join_code': 'ABC123'}
+        form = JoinGroupForm(data=form_data, user=self.user2)
+        self.assertFalse(form.is_valid())
+
+        # Too long
+        form_data = {'join_code': 'ABC123456'}
+        form = JoinGroupForm(data=form_data, user=self.user2)
+        self.assertFalse(form.is_valid())

@@ -126,6 +126,47 @@ class GroupModelTest(TestCase):
         """Test that non-members cannot view the group"""
         self.assertFalse(self.group.user_can_view(self.user2))
 
+    def test_join_code_fields_exist(self):
+        """Test that join code fields exist on the model"""
+        self.assertTrue(hasattr(self.group, 'join_code'))
+        self.assertTrue(hasattr(self.group, 'join_code_enabled'))
+
+    def test_join_code_default_values(self):
+        """Test that join code fields have correct default values"""
+        # New group should have no join code initially
+        self.assertIsNone(self.group.join_code)
+        # join_code_enabled defaults to True
+        self.assertTrue(self.group.join_code_enabled)
+
+    def test_join_code_can_be_set(self):
+        """Test that join code can be set and retrieved"""
+        self.group.join_code = 'ABC12345'
+        self.group.save()
+        self.assertEqual(self.group.join_code, 'ABC12345')
+
+    def test_join_code_unique_constraint(self):
+        """Test that join codes must be unique"""
+        self.group.join_code = 'TESTCODE'
+        self.group.save()
+
+        # Try to create another group with same code
+        group2 = Group.objects.create(name='Group 2', created_by=self.user1)
+        group2.join_code = 'TESTCODE'
+
+        # Should raise IntegrityError due to unique constraint
+        from django.db import IntegrityError
+        with self.assertRaises(IntegrityError):
+            group2.save()
+
+    def test_join_code_can_be_disabled(self):
+        """Test that join code can be enabled/disabled"""
+        self.group.join_code = 'ABC12345'
+        self.group.join_code_enabled = False
+        self.group.save()
+
+        refreshed_group = Group.objects.get(id=self.group.id)
+        self.assertFalse(refreshed_group.join_code_enabled)
+
 
 class GroupUnavailabilityModelTest(TestCase):
     """Tests for the GroupUnavailability model"""
