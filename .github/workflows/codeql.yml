@@ -43,10 +43,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-        - language: actions
-          build-mode: none
-        - language: javascript-typescript
-          build-mode: none
+        # Only analyze Python - this is a Django (Python) project
+        # Removed javascript-typescript: only 1 JS file (service-worker.js)
+        # Removed actions: minimal GitHub Actions code
         - language: python
           build-mode: none
         # CodeQL supports the following values keywords for 'language': 'actions', 'c-cpp', 'csharp', 'go', 'java-kotlin', 'javascript-typescript', 'python', 'ruby', 'rust', 'swift'
