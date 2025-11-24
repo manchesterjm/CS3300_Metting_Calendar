@@ -15,12 +15,16 @@ Version: 2.0
 Security: All views require authentication and implement CSRF protection
 """
 import datetime
+import logging
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import render, redirect
+from django.db import transaction, DatabaseError
 from .forms import UnavailabilityForm, DeleteSelectedForm
 from .models import Unavailability
 from .utils import calculate_free_time_slots
+
+logger = logging.getLogger(__name__)
 
 
 @login_required
@@ -77,20 +81,90 @@ def calendar_view(request):
                 # Save but don't commit yet - need to associate with user
                 new_record = form.save(commit=False)
                 new_record.user = request.user
+
+                # Handle recurring entries
+                is_recurring = form.cleaned_data.get('is_recurring', False)
+                if is_recurring:
+                    # Build recurrence pattern from form data
+                    frequency = form.cleaned_data.get('frequency')
+                    days_of_week = form.cleaned_data.get('days_of_week', [])
+                    interval = form.cleaned_data.get('interval', 1)
+                    recurrence_end_date = form.cleaned_data.get('recurrence_end_date')
+
+                    pattern = {
+                        'frequency': frequency,
+                        'interval': interval,
+                    }
+                    if frequency == 'weekly':
+                        pattern['days'] = days_of_week
+                    if recurrence_end_date:
+                        pattern['end_date'] = recurrence_end_date.strftime('%Y-%m-%d')
+
+                    # Set recurring fields on the master entry
+                    new_record.is_recurring = True
+                    new_record.recurrence_pattern = pattern
+
                 new_record.save()
-                # Success message with description if provided
-                if new_record.description:
-                    messages.success(
-                        request,
-                        f'New Record Made: <br>{new_record.date} from '
-                        f'{new_record.start_time} to {new_record.end_time} - {new_record.description}'
-                    )
+
+                # Generate recurring instances if this is a recurring entry
+                if is_recurring:
+                    from calendar_app.utils import generate_recurring_instances  # pylint: disable=import-outside-toplevel
+                    try:
+                        instances = generate_recurring_instances(new_record)
+                        instance_count = len(instances)
+
+                        if instance_count == 0:
+                            messages.warning(
+                                request,
+                                'Recurring entry created, but no instances were generated. '
+                                'Check your recurrence pattern settings.'
+                            )
+                        else:
+                            messages.success(
+                                request,
+                                f'Recurring entry created: {instance_count} instances generated<br>'
+                                f'Starting {new_record.date} from {new_record.start_time} to {new_record.end_time}'
+                            )
+                    except ValueError as e:
+                        # Validation error in pattern
+                        logger.error(
+                            'Invalid recurring pattern for entry %s (user: %s): %s',
+                            new_record.id, request.user.username, e
+                        )
+                        messages.error(
+                            request,
+                            f'Error creating recurring instances: {e} '
+                            'The master entry was created but instances could not be generated.'
+                        )
+                        # Optionally delete the master entry
+                        # new_record.delete()
+                    except DatabaseError as e:
+                        # Database error during instance creation
+                        logger.error(
+                            'Database error creating recurring instances for entry %s (user: %s): %s',
+                            new_record.id, request.user.username, e
+                        )
+                        messages.error(
+                            request,
+                            'A database error occurred while generating recurring instances. '
+                            'Please try again later or contact support if the problem persists.'
+                        )
+                        # Optionally delete the master entry
+                        # new_record.delete()
                 else:
-                    messages.success(
-                        request,
-                        f'New Record Made: <br>{new_record.date} from '
-                        f'{new_record.start_time} to {new_record.end_time}'
-                    )
+                    # Success message for non-recurring entry
+                    if new_record.description:
+                        messages.success(
+                            request,
+                            f'New Record Made: <br>{new_record.date} from '
+                            f'{new_record.start_time} to {new_record.end_time} - {new_record.description}'
+                        )
+                    else:
+                        messages.success(
+                            request,
+                            f'New Record Made: <br>{new_record.date} from '
+                            f'{new_record.start_time} to {new_record.end_time}'
+                        )
                 return redirect('calendar')  # return to calendar initial view
             # and again, I have not been able to make it error in such a way
             # that this gets displayed now
@@ -158,19 +232,82 @@ def calendar_view(request):
 
             if form_delete.is_valid():
                 entry_ids = form_delete.cleaned_data['entry_ids']
+                delete_series = form_delete.cleaned_data.get('delete_series', False)
                 # Debug output, I left this in to show what I did to catch errors,
                 # but it should not be needed anymore. It may be good for future devs.
                 print("Delete form cleaned data:", entry_ids)
                 if entry_ids:
                     entry_ids = [int(e_id) for e_id in entry_ids]
-                    # Only delete entries belonging to the current user
-                    count_before = Unavailability.objects.filter(
-                        user=request.user, id__in=entry_ids).count()
-                    print("Count before deletion:", count_before)
-                    Unavailability.objects.filter(user=request.user, id__in=entry_ids).delete()
-                    count_after = Unavailability.objects.filter(
-                        user=request.user, id__in=entry_ids).count()
-                    print("Count after deletion:", count_after)
+
+                    # Security: Wrap deletion in transaction to ensure atomicity
+                    # Prevents partial deletions if server crashes or database errors occur
+                    try:
+                        with transaction.atomic():
+                            # Handle recurring series deletion if requested
+                            if delete_series:
+                                entries_to_delete = Unavailability.objects.filter(
+                                    user=request.user, id__in=entry_ids
+                                )
+                                # Collect parent entries and their instances
+                                parent_ids = set()
+                                for entry in entries_to_delete:
+                                    if entry.parent_recurring_entry:
+                                        # This is an instance, get the parent
+                                        parent_ids.add(entry.parent_recurring_entry.id)
+                                    elif entry.is_recurring:
+                                        # This is a parent entry
+                                        parent_ids.add(entry.id)
+
+                                # Optimized: Use bulk deletes instead of loop
+                                if parent_ids:
+                                    # Delete all instances in one query
+                                    Unavailability.objects.filter(
+                                        user=request.user,
+                                        parent_recurring_entry_id__in=parent_ids
+                                    ).delete()
+                                    # Delete all parents in one query
+                                    Unavailability.objects.filter(
+                                        user=request.user,
+                                        id__in=parent_ids
+                                    ).delete()
+
+                                # Also delete any non-recurring entries in the selection
+                                Unavailability.objects.filter(
+                                    user=request.user,
+                                    id__in=entry_ids,
+                                    is_recurring=False,
+                                    parent_recurring_entry__isnull=True
+                                ).delete()
+
+                                logger.info(
+                                    'User %s deleted recurring series: %d parents with their instances',
+                                    request.user.username, len(parent_ids)
+                                )
+                            else:
+                                # Normal deletion - only delete selected entries
+                                count_before = Unavailability.objects.filter(
+                                    user=request.user, id__in=entry_ids).count()
+                                print("Count before deletion:", count_before)
+                                Unavailability.objects.filter(
+                                    user=request.user, id__in=entry_ids
+                                ).delete()
+                                count_after = Unavailability.objects.filter(
+                                    user=request.user, id__in=entry_ids).count()
+                                print("Count after deletion:", count_after)
+                                logger.info(
+                                    'User %s deleted %d entries: %s',
+                                    request.user.username, count_before, entry_ids
+                                )
+                    except DatabaseError as e:
+                        logger.error(
+                            'Error deleting entries for user %s: %s',
+                            request.user.username, e
+                        )
+                        messages.error(
+                            request,
+                            'An error occurred while deleting entries. Please try again.'
+                        )
+                        return redirect('calendar')
                 else:
                     print("No entries selected for deletion.")  # we didn't select anything
                 return redirect('calendar')  # return to calendar initial view
