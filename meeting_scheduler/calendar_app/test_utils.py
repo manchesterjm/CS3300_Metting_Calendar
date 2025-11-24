@@ -375,4 +375,3 @@ class GenerateRecurringInstancesTests(TestCase):
         # No instance should have the start_date
         instance_dates = [inst.date for inst in instances]
         self.assertNotIn(self.start_date, instance_dates)
-

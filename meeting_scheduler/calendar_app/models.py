@@ -8,9 +8,11 @@ Models:
     - Unavailability: Individual user unavailability periods
     - Group: Shared calendar groups for team scheduling
     - GroupUnavailability: Unavailability entries for group calendars
+    - MeetingProposal: Proposed meeting times for group coordination
+    - MeetingResponse: Member responses to meeting proposals
 
-Version: 2.0 (Group Calendar Support)
-Last Updated: 2025-01-11
+Version: 3.0 (Meeting Proposals Support)
+Last Updated: 2025-11-24
 """
 from datetime import datetime
 from django.conf import settings
@@ -371,3 +373,211 @@ class GroupUnavailability(models.Model):
             bool: True if the user can view this entry, False otherwise.
         """
         return self.group.user_can_view(user)
+
+
+class MeetingProposal(models.Model):
+    """
+    Model representing a proposed meeting time for a group.
+
+    Meeting proposals allow users to suggest specific meeting times. All group
+    members must accept the proposal for it to be scheduled. If any member
+    declines, the proposal is rejected.
+
+    Attributes:
+        group: The group this proposal belongs to.
+        proposed_by: The user who created the proposal.
+        title: Title/subject of the meeting.
+        description: Optional detailed description.
+        meeting_datetime: Proposed date and time for the meeting.
+        duration_minutes: Duration in minutes (30, 60, or 120).
+        status: Current status (pending, accepted, rejected, scheduled).
+        created_at: Timestamp when proposal was created.
+    """
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('accepted', 'Accepted'),
+        ('rejected', 'Rejected'),
+        ('scheduled', 'Scheduled'),
+    ]
+
+    DURATION_CHOICES = [
+        (30, '30 minutes'),
+        (60, '1 hour'),
+        (120, '2 hours'),
+    ]
+
+    group = models.ForeignKey(
+        'Group',
+        on_delete=models.CASCADE,
+        related_name='meeting_proposals'
+    )
+    proposed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='proposed_meetings'
+    )
+    title = models.CharField(max_length=200)
+    description = models.TextField(blank=True, default='')
+    meeting_datetime = models.DateTimeField()
+    duration_minutes = models.IntegerField(choices=DURATION_CHOICES, default=60)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['group', 'status']),
+            models.Index(fields=['proposed_by', 'status']),
+            models.Index(fields=['meeting_datetime']),
+        ]
+
+    def __str__(self):
+        """
+        Return a human-readable string representation of the meeting proposal.
+
+        Returns:
+            str: Formatted string showing title, group, and datetime.
+        """
+        return f"{self.title} - {self.group.name} at {self.meeting_datetime}"
+
+    def get_all_responses(self):
+        """
+        Get all responses to this proposal.
+
+        Returns:
+            QuerySet: All MeetingResponse objects for this proposal.
+        """
+        return self.responses.all()
+
+    def get_pending_members(self):
+        """
+        Get list of group members and owner who haven't responded yet.
+
+        Security: Includes group owner to ensure they can participate in proposals.
+        Without this, owner-only groups or groups where owner hasn't responded
+        would incorrectly auto-schedule meetings.
+
+        Returns:
+            QuerySet: User objects who are group members or owner but haven't responded.
+        """
+        from django.contrib.auth import get_user_model
+        user_model = get_user_model()
+
+        responded_user_ids = self.responses.values_list('user_id', flat=True)
+        # Get all members + owner (using distinct to avoid duplicates if owner is also member)
+        member_ids = list(self.group.members.values_list('id', flat=True))
+        owner_id = self.group.created_by.id
+        all_participant_ids = list(set(member_ids + [owner_id]))
+
+        # Return users who haven't responded
+        return user_model.objects.filter(id__in=all_participant_ids).exclude(id__in=responded_user_ids)
+
+    def check_all_accepted(self):
+        """
+        Check if all group members and owner have accepted the proposal.
+
+        Security: Counts owner + members to prevent auto-scheduling without owner's consent.
+        Without this check, meetings could be scheduled even if the owner (who may have
+        created the proposal) hasn't explicitly accepted.
+
+        Returns:
+            bool: True if all members and owner accepted, False otherwise.
+        """
+        # Count unique participants (owner + members, avoiding duplicates)
+        member_ids = set(self.group.members.values_list('id', flat=True))
+        owner_id = self.group.created_by.id
+        all_participant_ids = member_ids | {owner_id}  # Set union
+        total_participants = len(all_participant_ids)
+
+        accepted_count = self.responses.filter(response='accept').count()
+        return total_participants > 0 and total_participants == accepted_count
+
+    def has_rejection(self):
+        """
+        Check if any member has declined the proposal.
+
+        Returns:
+            bool: True if at least one decline response exists.
+        """
+        return self.responses.filter(response='decline').exists()
+
+    def user_can_view(self, user):
+        """
+        Check if a user can view this proposal.
+
+        Args:
+            user: The User instance to check permissions for.
+
+        Returns:
+            bool: True if user is a group member or owner.
+        """
+        return self.group.user_can_view(user)
+
+    def user_can_respond(self, user):
+        """
+        Check if a user can respond to this proposal.
+
+        Security: Allows both group members AND owner to respond. Without this check,
+        the owner who created the proposal couldn't accept it themselves, leading to
+        meetings that can never be scheduled in owner-only groups.
+
+        Args:
+            user: The User instance to check permissions for.
+
+        Returns:
+            bool: True if user is a group member or owner and hasn't responded yet.
+        """
+        # User must be either owner or member
+        is_participant = self.group.is_member(user) or self.group.is_owner(user)
+        if not is_participant:
+            return False
+        return not self.responses.filter(user=user).exists()
+
+
+class MeetingResponse(models.Model):
+    """
+    Model representing a user's response to a meeting proposal.
+
+    Each group member can respond once to a proposal with accept or decline.
+
+    Attributes:
+        proposal: The meeting proposal this response belongs to.
+        user: The user who submitted this response.
+        response: Accept or decline.
+        responded_at: Timestamp when response was submitted.
+    """
+    RESPONSE_CHOICES = [
+        ('accept', 'Accept'),
+        ('decline', 'Decline'),
+    ]
+
+    proposal = models.ForeignKey(
+        'MeetingProposal',
+        on_delete=models.CASCADE,
+        related_name='responses'
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='meeting_responses'
+    )
+    response = models.CharField(max_length=10, choices=RESPONSE_CHOICES)
+    responded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ['proposal', 'user']
+        ordering = ['-responded_at']
+        indexes = [
+            models.Index(fields=['proposal', 'response']),
+            models.Index(fields=['user', 'responded_at']),
+        ]
+
+    def __str__(self):
+        """
+        Return a human-readable string representation of the response.
+
+        Returns:
+            str: Formatted string showing user, response, and proposal.
+        """
+        action = "accepted" if self.response == "accept" else "declined"
+        return f"{self.user.username} {action}: {self.proposal.title}"

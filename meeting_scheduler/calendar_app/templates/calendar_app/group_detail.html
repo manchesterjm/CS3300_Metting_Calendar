@@ -47,6 +47,14 @@ h1 {
     background-color: #16a085;
 }
 
+.proposals-btn {
+    background-color: #9b59b6;
+}
+
+.proposals-btn:hover {
+    background-color: #8e44ad;
+}
+
 .add-member-btn {
     background-color: #3498db;
 }
@@ -276,6 +284,7 @@ h2 {
 
     <div class="action-buttons">
         <a href="{% url 'group_calendar' group.id %}" class="calendar-btn">View Calendar</a>
+        <a href="{% url 'proposal_list' group.id %}" class="proposals-btn">Meeting Proposals</a>
         {% if is_owner %}
             <a href="{% url 'group_add_member' group.id %}" class="add-member-btn">Add Member</a>
             <a href="{% url 'group_delete' group.id %}" class="delete-btn">Delete Group</a>
