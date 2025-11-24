@@ -69,7 +69,7 @@ jobs:
 
       - name: Upload Semgrep results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: semgrep-results
           path: meeting_scheduler/semgrep-results.json
@@ -111,7 +111,7 @@ jobs:
 
       - name: Upload pip-audit results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: pip-audit-results
           path: meeting_scheduler/pip-audit-results.json
@@ -152,7 +152,7 @@ jobs:
 
       - name: Upload Bandit results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: bandit-results
           path: meeting_scheduler/bandit-results.json
@@ -190,7 +190,7 @@ jobs:
 
       - name: Upload Safety results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: safety-results
           path: meeting_scheduler/safety-results.json
