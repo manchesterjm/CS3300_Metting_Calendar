@@ -7,7 +7,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("calendar_app", "0006_remove_description_null"),
+        ("calendar_app", "0007_group_join_code_group_join_code_enabled"),
     ]
 
     operations = [
