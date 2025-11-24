@@ -1,5 +1,5 @@
 # Django Framework
-Django==5.1.13
+Django==5.1.14
 
 # Production Server
 gunicorn==23.0.0
