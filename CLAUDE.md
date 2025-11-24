@@ -405,6 +405,38 @@ The following security features are already configured:
 - All dependencies scanned for known vulnerabilities
 - Regular updates required to maintain security
 
+### CI/CD Security Automation
+
+**GitHub Actions Workflows:**
+
+The project includes automated security scanning in CI/CD:
+
+1. **Security Workflow** (`.github/workflows/security.yml`)
+   - Runs on all pushes and pull requests
+   - Executes all 4 security scanners (Bandit, Safety, pip-audit, Semgrep)
+   - Posts results as PR comments with detailed findings
+   - Uploads scan results as artifacts
+   - Non-blocking: reports issues but doesn't fail builds
+
+2. **Dependabot** (`.github/dependabot.yml`)
+   - Automatically monitors Python dependencies for security updates
+   - Creates PRs for vulnerable or outdated packages
+   - Groups dependencies (production vs development)
+   - Weekly scans every Monday at 9:00 AM
+   - Also monitors GitHub Actions workflow dependencies
+
+**Workflow Triggers:**
+- Runs automatically on every push to any branch
+- Runs on all pull requests
+- Results posted as sticky comments on PRs
+- Scan artifacts available for download
+
+**Managing Security Alerts:**
+- Review Dependabot PRs weekly for security updates
+- Address semgrep findings before merging
+- Fix pip-audit vulnerabilities immediately
+- Review Bandit warnings for false positives
+
 ### Security Best Practices
 
 1. **Run security scans before committing code**
@@ -413,6 +445,8 @@ The following security features are already configured:
 4. **Review Bandit/Semgrep findings and address issues**
 5. **Use HTTPS in production environments**
 6. **Regularly audit dependencies with Safety and pip-audit**
+7. **Review and merge Dependabot security PRs promptly**
+8. **Check CI/CD security workflow results on all PRs**
 
 ## Architecture Notes
 
