@@ -223,7 +223,10 @@ class UnavailabilityForm(BaseDescriptionForm, forms.ModelForm):  # pylint: disab
 
                 if frequency == 'weekly':
                     if not days_of_week:
-                        self.add_error('days_of_week', "Please select at least one day of the week for weekly recurrence.")
+                        self.add_error(
+                            'days_of_week',
+                            "Please select at least one day of the week for weekly recurrence."
+                        )
                     else:
                         # Security: Validate each day value (defense-in-depth)
                         valid_days = ['monday', 'tuesday', 'wednesday', 'thursday',
