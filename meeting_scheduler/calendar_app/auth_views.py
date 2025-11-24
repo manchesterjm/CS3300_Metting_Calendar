@@ -19,6 +19,7 @@ from django.contrib.auth.decorators import login_required
 from django.db import DatabaseError, IntegrityError, transaction
 from django.shortcuts import render, redirect
 from django.http import HttpResponseServerError
+from django.utils.http import url_has_allowed_host_and_scheme
 from .auth_forms import UserRegistrationForm, CustomAuthenticationForm, UserProfileForm
 
 # Configure logger for authentication module
@@ -100,9 +101,19 @@ def login_view(request):
             user = form.get_user()
             login(request, user)
             messages.success(request, f'Welcome back, {user.username}!')
-            # Redirect to 'next' parameter if provided, otherwise to calendar
-            next_url = request.GET.get('next', 'calendar')
-            return redirect(next_url)
+
+            # SECURITY: Validate redirect URL to prevent open redirect attacks
+            # Only allow redirects to same domain to prevent phishing
+            next_url = request.GET.get('next', '')
+            if next_url and url_has_allowed_host_and_scheme(
+                url=next_url,
+                allowed_hosts={request.get_host()},
+                require_https=request.is_secure()
+            ):
+                return redirect(next_url)
+            else:
+                # Default safe redirect if next URL is missing or unsafe
+                return redirect('calendar')
         messages.error(request, 'Invalid username or password.')
     else:
         form = CustomAuthenticationForm()
