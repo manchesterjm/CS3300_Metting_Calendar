@@ -74,16 +74,20 @@
                 </div>
                 {% else %}
                 <div class="response-buttons">
-                    <a href="{% url 'respond_to_proposal' proposal.id 'accept' %}"
-                       class="btn btn-success"
-                       onclick="return confirm('Accept this meeting proposal?');">
-                        ✓ Accept
-                    </a>
-                    <a href="{% url 'respond_to_proposal' proposal.id 'decline' %}"
-                       class="btn btn-danger"
-                       onclick="return confirm('Decline this meeting proposal? This will reject the proposal for everyone.');">
-                        ✗ Decline
-                    </a>
+                    <form method="post" action="{% url 'respond_to_proposal' proposal.id 'accept' %}" style="display: inline;">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-success"
+                                onclick="return confirm('Accept this meeting proposal?');">
+                            ✓ Accept
+                        </button>
+                    </form>
+                    <form method="post" action="{% url 'respond_to_proposal' proposal.id 'decline' %}" style="display: inline;">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-danger"
+                                onclick="return confirm('Decline this meeting proposal? This will reject the proposal for everyone.');">
+                            ✗ Decline
+                        </button>
+                    </form>
                 </div>
                 {% endif %}
             {% elif proposal.status == 'scheduled' %}

@@ -122,6 +122,10 @@ def respond_to_proposal_view(request, proposal_id, response_type):
     Allows group members to accept or decline a proposal.
     When all members accept, the meeting is auto-scheduled.
 
+    Security: Requires POST request with CSRF token to prevent CSRF attacks.
+    GET requests are rejected to protect against malicious links that could
+    trick users into accepting/declining proposals.
+
     Args:
         request: HttpRequest object
         proposal_id: ID of the proposal
@@ -130,6 +134,11 @@ def respond_to_proposal_view(request, proposal_id, response_type):
     Returns:
         HttpResponse: Redirect to proposal list
     """
+    # Security: Require POST to prevent CSRF attacks
+    if request.method != 'POST':
+        messages.error(request, 'Invalid request method. Please use the buttons to respond.')
+        return redirect('group_list')
+
     proposal = get_object_or_404(MeetingProposal, id=proposal_id)
 
     # Check if user can respond

@@ -476,7 +476,7 @@ class ProposalViewTests(TestCase):
 
         self.client.login(username="user2", password="pass123")
         url = reverse('respond_to_proposal', args=[proposal.id, 'accept'])
-        response = self.client.get(url)
+        response = self.client.post(url)  # Changed to POST for CSRF protection
 
         # Should redirect
         self.assertEqual(response.status_code, 302)
@@ -500,7 +500,7 @@ class ProposalViewTests(TestCase):
 
         self.client.login(username="user2", password="pass123")
         url = reverse('respond_to_proposal', args=[proposal.id, 'decline'])
-        response = self.client.get(url)
+        response = self.client.post(url)  # Changed to POST for CSRF protection
 
         # Should redirect
         self.assertEqual(response.status_code, 302)
@@ -508,6 +508,29 @@ class ProposalViewTests(TestCase):
         # Proposal should be rejected
         proposal.refresh_from_db()
         self.assertEqual(proposal.status, 'rejected')
+
+    def test_respond_rejects_get_request(self):
+        """Test that GET requests are rejected (CSRF protection)."""
+        proposal = MeetingProposal.objects.create(
+            group=self.group,
+            proposed_by=self.user1,
+            title="Team Meeting",
+            meeting_datetime=self.future_time,
+            duration_minutes=60
+        )
+
+        self.client.login(username="user2", password="pass123")
+        url = reverse('respond_to_proposal', args=[proposal.id, 'accept'])
+        response = self.client.get(url)  # Attempt GET instead of POST
+
+        # Should redirect with error message
+        self.assertEqual(response.status_code, 302)
+
+        # Response should NOT be created (GET was rejected)
+        user_response = MeetingResponse.objects.filter(
+            proposal=proposal, user=self.user2
+        ).first()
+        self.assertIsNone(user_response)
 
 
 class ProposalWorkflowTests(TestCase):
@@ -547,7 +570,7 @@ class ProposalWorkflowTests(TestCase):
         for user in [self.user1, self.user2, self.user3]:
             self.client.login(username=user.username, password="pass123")
             url = reverse('respond_to_proposal', args=[proposal.id, 'accept'])
-            self.client.get(url)
+            self.client.post(url)  # Changed to POST for CSRF protection
             self.client.logout()
 
         # Proposal should be scheduled
@@ -577,7 +600,7 @@ class ProposalWorkflowTests(TestCase):
         # User2 declines
         self.client.login(username="user2", password="pass123")
         url = reverse('respond_to_proposal', args=[proposal.id, 'decline'])
-        self.client.get(url)
+        self.client.post(url)  # Changed to POST for CSRF protection
 
         # Proposal should be rejected
         proposal.refresh_from_db()
