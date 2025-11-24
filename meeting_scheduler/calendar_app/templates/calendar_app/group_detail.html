@@ -294,7 +294,7 @@ h2 {
                 </span>
             </div>
             <div class="join-code-actions">
-                <button onclick="copyJoinCode('{{ group.join_code }}')" class="copy-btn">Copy Code</button>
+                <button data-code="{{ group.join_code }}" onclick="copyJoinCode(this.dataset.code)" class="copy-btn">Copy Code</button>
                 <form method="post" action="{% url 'toggle_join_code' group.id %}" style="display: inline;">
                     {% csrf_token %}
                     <button type="submit" class="toggle-code-btn">

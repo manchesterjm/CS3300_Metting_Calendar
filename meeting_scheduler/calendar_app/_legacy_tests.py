@@ -7,7 +7,7 @@ Includes comprehensive error handling tests for all exception paths.
 Added password generation tests for new auto-password feature.
 Updated for read-only group calendar workflow (removed 5 obsolete tests).
 
-Test Count: 133 unit tests (30 unit + 16 fuzz + 72 view/integration + 15 password gen tests)
+Test Count: 144 unit tests (30 unit + 16 fuzz + 72 view/integration + 15 password gen + 11 join code tests)
 Coverage: 93%+ on critical modules
 Last Updated: 2025-11-02
 """
@@ -24,7 +24,7 @@ from .forms import (
     AddMemberForm,
     GroupUnavailabilityForm
 )
-from .utils import generate_password
+from .utils import generate_password, generate_join_code
 
 # pylint: disable=too-many-lines
 
@@ -1566,6 +1566,88 @@ class PasswordGenerationTest(TestCase):
         # Don't login - API should still work for registration page (uses POST now for security)
         response = self.client.post(reverse('generate_password_api'))
         self.assertEqual(response.status_code, 200)
+
+
+class JoinCodeGenerationTest(TestCase):
+    """Tests for join code generation utility (generate_join_code)"""
+
+    def test_generate_join_code_length(self):
+        """Test that join codes are exactly 8 characters long"""
+        code = generate_join_code()
+        self.assertEqual(len(code), 8)
+
+    def test_generate_join_code_multiple_length(self):
+        """Test that multiple generated codes are all 8 characters"""
+        for _ in range(10):
+            code = generate_join_code()
+            self.assertEqual(len(code), 8, f"Join code {code} should be 8 characters")
+
+    def test_generate_join_code_uppercase_only(self):
+        """Test that join codes contain only uppercase characters"""
+        for _ in range(10):
+            code = generate_join_code()
+            self.assertTrue(code.isupper(), f"Join code {code} should be uppercase only")
+
+    def test_generate_join_code_alphanumeric(self):
+        """Test that join codes are alphanumeric"""
+        for _ in range(10):
+            code = generate_join_code()
+            self.assertTrue(code.isalnum(), f"Join code {code} should be alphanumeric")
+
+    def test_generate_join_code_valid_charset(self):
+        """Test that join codes only use the specified character set"""
+        valid_chars = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ'
+        for _ in range(20):
+            code = generate_join_code()
+            for char in code:
+                self.assertIn(char, valid_chars,
+                             f"Character {char} in code {code} not in valid set")
+
+    def test_generate_join_code_excludes_confusing_chars(self):
+        """Test that join codes exclude confusing characters (0, O, I, 1)"""
+        # Generate multiple codes to increase confidence
+        for _ in range(20):
+            code = generate_join_code()
+            # Should not contain: 0, O, I, 1
+            self.assertNotIn('0', code, f"Join code {code} should not contain '0'")
+            self.assertNotIn('O', code, f"Join code {code} should not contain 'O'")
+            self.assertNotIn('I', code, f"Join code {code} should not contain 'I'")
+            self.assertNotIn('1', code, f"Join code {code} should not contain '1'")
+
+    def test_generate_join_code_no_lowercase(self):
+        """Test that join codes never contain lowercase letters"""
+        for _ in range(20):
+            code = generate_join_code()
+            self.assertFalse(any(c.islower() for c in code),
+                           f"Join code {code} should not contain lowercase letters")
+
+    def test_generate_join_code_uniqueness(self):
+        """Test that generated join codes are unique"""
+        # Generate 100 codes and check they're all unique
+        codes = [generate_join_code() for _ in range(100)]
+        unique_codes = set(codes)
+        # With 32 possible characters and 8-character codes, collisions are extremely rare
+        # We expect all 100 to be unique (32^8 = 1,099,511,627,776 possible codes)
+        self.assertEqual(len(codes), len(unique_codes),
+                        f"Expected 100 unique codes, got {len(unique_codes)}")
+
+    def test_generate_join_code_randomness(self):
+        """Test that join codes appear random (not sequential or patterned)"""
+        codes = [generate_join_code() for _ in range(10)]
+        # Check that codes are different from each other
+        for i, code1 in enumerate(codes):
+            for code2 in codes[i+1:]:
+                self.assertNotEqual(code1, code2,
+                                   "Generated codes should be different")
+
+    def test_generate_join_code_no_special_chars(self):
+        """Test that join codes don't contain special characters"""
+        special_chars = '!@#$%^&*()-_=+[]{}|;:,.<>?/~`\'"'
+        for _ in range(20):
+            code = generate_join_code()
+            for char in special_chars:
+                self.assertNotIn(char, code,
+                               f"Join code {code} should not contain special character {char}")
 
 
 class ChangePasswordViewTest(TestCase):
