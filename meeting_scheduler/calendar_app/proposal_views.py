@@ -289,10 +289,14 @@ The meeting has been added to your personal calendar.
 
 def schedule_meeting(proposal):
     """
-    Auto-schedule a meeting by creating Unavailability entries for all members.
+    Auto-schedule a meeting by creating Unavailability entries for all participants.
 
-    When all group members accept a proposal, this function creates unavailability
-    entries on each member's personal calendar to block the meeting time.
+    When all group members and owner accept a proposal, this function creates
+    unavailability entries on each participant's personal calendar to block the meeting time.
+
+    Security: Includes owner to ensure their calendar is blocked. Without this,
+    the owner who created and accepted the proposal wouldn't have the meeting
+    on their calendar.
 
     Args:
         proposal: MeetingProposal instance
@@ -301,10 +305,17 @@ def schedule_meeting(proposal):
     start_datetime = proposal.meeting_datetime
     end_datetime = start_datetime + timedelta(minutes=proposal.duration_minutes)
 
-    # Create unavailability entry for each group member
-    for member in proposal.group.members.all():
+    # Get all unique participants (owner + members, avoiding duplicates)
+    member_ids = set(proposal.group.members.values_list('id', flat=True))
+    owner_id = proposal.group.created_by.id
+    all_participant_ids = member_ids | {owner_id}  # Set union to avoid duplicates
+
+    # Create unavailability entry for each participant
+    from django.contrib.auth import get_user_model
+    user_model = get_user_model()
+    for user in user_model.objects.filter(id__in=all_participant_ids):
         Unavailability.objects.create(
-            user=member,
+            user=user,
             date=start_datetime.date(),
             start_time=start_datetime.time(),
             end_time=end_datetime.time(),

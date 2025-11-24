@@ -451,24 +451,46 @@ class MeetingProposal(models.Model):
 
     def get_pending_members(self):
         """
-        Get list of group members who haven't responded yet.
+        Get list of group members and owner who haven't responded yet.
+
+        Security: Includes group owner to ensure they can participate in proposals.
+        Without this, owner-only groups or groups where owner hasn't responded
+        would incorrectly auto-schedule meetings.
 
         Returns:
-            QuerySet: User objects who are group members but haven't responded.
+            QuerySet: User objects who are group members or owner but haven't responded.
         """
+        from django.contrib.auth import get_user_model
+        user_model = get_user_model()
+
         responded_user_ids = self.responses.values_list('user_id', flat=True)
-        return self.group.members.exclude(id__in=responded_user_ids)
+        # Get all members + owner (using distinct to avoid duplicates if owner is also member)
+        member_ids = list(self.group.members.values_list('id', flat=True))
+        owner_id = self.group.created_by.id
+        all_participant_ids = list(set(member_ids + [owner_id]))
+
+        # Return users who haven't responded
+        return user_model.objects.filter(id__in=all_participant_ids).exclude(id__in=responded_user_ids)
 
     def check_all_accepted(self):
         """
-        Check if all group members have accepted the proposal.
+        Check if all group members and owner have accepted the proposal.
+
+        Security: Counts owner + members to prevent auto-scheduling without owner's consent.
+        Without this check, meetings could be scheduled even if the owner (who may have
+        created the proposal) hasn't explicitly accepted.
 
         Returns:
-            bool: True if all members accepted, False otherwise.
+            bool: True if all members and owner accepted, False otherwise.
         """
-        total_members = self.group.members.count()
+        # Count unique participants (owner + members, avoiding duplicates)
+        member_ids = set(self.group.members.values_list('id', flat=True))
+        owner_id = self.group.created_by.id
+        all_participant_ids = member_ids | {owner_id}  # Set union
+        total_participants = len(all_participant_ids)
+
         accepted_count = self.responses.filter(response='accept').count()
-        return total_members > 0 and total_members == accepted_count
+        return total_participants > 0 and total_participants == accepted_count
 
     def has_rejection(self):
         """
@@ -495,13 +517,19 @@ class MeetingProposal(models.Model):
         """
         Check if a user can respond to this proposal.
 
+        Security: Allows both group members AND owner to respond. Without this check,
+        the owner who created the proposal couldn't accept it themselves, leading to
+        meetings that can never be scheduled in owner-only groups.
+
         Args:
             user: The User instance to check permissions for.
 
         Returns:
-            bool: True if user is a group member and hasn't responded yet.
+            bool: True if user is a group member or owner and hasn't responded yet.
         """
-        if not self.group.is_member(user):
+        # User must be either owner or member
+        is_participant = self.group.is_member(user) or self.group.is_owner(user)
+        if not is_participant:
             return False
         return not self.responses.filter(user=user).exists()
 

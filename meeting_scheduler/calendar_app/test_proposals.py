@@ -627,3 +627,193 @@ class ProposalWorkflowTests(TestCase):
         # Should send email to all members
         self.assertEqual(len(mail.outbox), 1)
         self.assertIn('New Meeting Proposal', mail.outbox[0].subject)
+
+
+class OwnerParticipationTests(TestCase):
+    """
+    Test cases for owner participation in meeting proposals.
+
+    Security: These tests verify that group owners are properly included in
+    proposal workflows, preventing security issues where owners could be
+    excluded from meetings or unable to respond to proposals.
+    """
+
+    def setUp(self):
+        """Create test users and groups with owner NOT as member."""
+        self.owner = User.objects.create_user(username="owner", password="pass123")
+        self.member1 = User.objects.create_user(username="member1", password="pass123")
+        self.member2 = User.objects.create_user(username="member2", password="pass123")
+
+        # Create group where owner is NOT a member
+        self.group = Group.objects.create(name="Test Group", created_by=self.owner)
+        self.group.members.add(self.member1, self.member2)
+        # Note: owner is NOT in members list
+
+        self.future_time = timezone.now() + timedelta(days=7)
+        self.client = Client()
+
+    def test_owner_can_respond_to_proposal(self):
+        """Test that owner can respond even if not in members list."""
+        proposal = MeetingProposal.objects.create(
+            group=self.group,
+            proposed_by=self.owner,
+            title="Team Meeting",
+            meeting_datetime=self.future_time,
+            duration_minutes=60
+        )
+
+        # Owner should be able to respond
+        self.assertTrue(proposal.user_can_respond(self.owner))
+
+        # Create response
+        self.client.login(username="owner", password="pass123")
+        url = reverse('respond_to_proposal', args=[proposal.id, 'accept'])
+        response = self.client.post(url)
+
+        # Should succeed
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(MeetingResponse.objects.filter(proposal=proposal, user=self.owner).count(), 1)
+
+    def test_owner_included_in_pending_members(self):
+        """Test that get_pending_members includes owner."""
+        proposal = MeetingProposal.objects.create(
+            group=self.group,
+            proposed_by=self.owner,
+            title="Team Meeting",
+            meeting_datetime=self.future_time,
+            duration_minutes=60
+        )
+
+        # Only member1 responds
+        MeetingResponse.objects.create(
+            proposal=proposal, user=self.member1, response='accept'
+        )
+
+        pending = proposal.get_pending_members()
+        # Should include owner and member2 (2 people)
+        self.assertEqual(pending.count(), 2)
+        self.assertIn(self.owner, pending)
+        self.assertIn(self.member2, pending)
+
+    def test_check_all_accepted_requires_owner(self):
+        """Test that check_all_accepted counts owner."""
+        proposal = MeetingProposal.objects.create(
+            group=self.group,
+            proposed_by=self.owner,
+            title="Team Meeting",
+            meeting_datetime=self.future_time,
+            duration_minutes=60
+        )
+
+        # Only members accept (not owner)
+        MeetingResponse.objects.create(
+            proposal=proposal, user=self.member1, response='accept'
+        )
+        MeetingResponse.objects.create(
+            proposal=proposal, user=self.member2, response='accept'
+        )
+
+        # Should be False because owner hasn't accepted
+        self.assertFalse(proposal.check_all_accepted())
+
+        # Owner accepts
+        MeetingResponse.objects.create(
+            proposal=proposal, user=self.owner, response='accept'
+        )
+
+        # Now should be True
+        self.assertTrue(proposal.check_all_accepted())
+
+    def test_schedule_meeting_includes_owner_calendar(self):
+        """Test that scheduled meetings appear on owner's calendar."""
+        proposal = MeetingProposal.objects.create(
+            group=self.group,
+            proposed_by=self.owner,
+            title="Team Meeting",
+            meeting_datetime=self.future_time,
+            duration_minutes=60
+        )
+
+        # Owner and member1 accept first
+        self.client.login(username="owner", password="pass123")
+        url = reverse('respond_to_proposal', args=[proposal.id, 'accept'])
+        self.client.post(url)
+
+        self.client.login(username="member1", password="pass123")
+        self.client.post(url)
+
+        # Member2 accepts last (triggers auto-schedule)
+        self.client.login(username="member2", password="pass123")
+        self.client.post(url)
+
+        # Check that Unavailability was created for owner
+        owner_unavailability = Unavailability.objects.filter(
+            user=self.owner,
+            date=self.future_time.date(),
+            description__icontains='Meeting: Team Meeting'
+        )
+        self.assertEqual(owner_unavailability.count(), 1)
+
+        # Check all participants have calendar entries (3 total)
+        all_unavailability = Unavailability.objects.filter(
+            date=self.future_time.date(),
+            description__icontains='Meeting: Team Meeting'
+        )
+        self.assertEqual(all_unavailability.count(), 3)
+
+    def test_owner_only_group_can_accept_proposal(self):
+        """Test that owner-only groups (no members) can schedule meetings."""
+        # Create owner-only group
+        solo_group = Group.objects.create(name="Solo Group", created_by=self.owner)
+        # No members added
+
+        proposal = MeetingProposal.objects.create(
+            group=solo_group,
+            proposed_by=self.owner,
+            title="Solo Task",
+            meeting_datetime=self.future_time,
+            duration_minutes=30
+        )
+
+        # Owner should be able to respond
+        self.assertTrue(proposal.user_can_respond(self.owner))
+
+        # Owner accepts
+        MeetingResponse.objects.create(
+            proposal=proposal, user=self.owner, response='accept'
+        )
+
+        # Should be fully accepted (only participant is owner)
+        self.assertTrue(proposal.check_all_accepted())
+
+    def test_owner_and_member_no_duplicate_calendar_entries(self):
+        """Test that owner who is also a member doesn't get duplicate calendar entries."""
+        # Create group where owner is ALSO a member
+        dual_group = Group.objects.create(name="Dual Group", created_by=self.owner)
+        dual_group.members.add(self.owner, self.member1)  # Owner is both owner and member
+
+        proposal = MeetingProposal.objects.create(
+            group=dual_group,
+            proposed_by=self.owner,
+            title="Dual Meeting",
+            meeting_datetime=self.future_time,
+            duration_minutes=60
+        )
+
+        # Both accept
+        for user in [self.owner, self.member1]:
+            MeetingResponse.objects.create(
+                proposal=proposal, user=user, response='accept'
+            )
+
+        # Manually trigger schedule_meeting
+        from calendar_app.proposal_views import schedule_meeting
+        schedule_meeting(proposal)
+
+        # Owner should have exactly 1 calendar entry (not 2)
+        owner_entries = Unavailability.objects.filter(
+            user=self.owner,
+            date=self.future_time.date(),
+            description__icontains='Meeting: Dual Meeting'
+        )
+        self.assertEqual(owner_entries.count(), 1)
