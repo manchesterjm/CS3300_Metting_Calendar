@@ -1,5 +1,9 @@
 version: 2
 
+# Dependabot creates PRs for dependency updates - it does NOT auto-merge
+# All updates require manual review and approval before merging
+# This provides automated monitoring while maintaining control over changes
+
 updates:
   # Monitor Python dependencies in requirements.txt
   - package-ecosystem: "pip"

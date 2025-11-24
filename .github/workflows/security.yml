@@ -7,9 +7,8 @@ on:
     branches: ["**"]
 
 permissions:
-  contents: read
-  pull-requests: write
-  security-events: write
+  contents: read        # Required to checkout code
+  pull-requests: write  # Required to post PR comments
 
 jobs:
   security-scan:
@@ -37,6 +36,9 @@ jobs:
       # ============================================================
       - name: Run Semgrep
         id: semgrep
+        # continue-on-error allows all scanners to run even if one fails
+        # This is intentional: scans are informational, not blocking
+        # Results are reported in PR comments for manual review
         continue-on-error: true
         run: |
           cd meeting_scheduler
@@ -298,6 +300,8 @@ jobs:
             echo "✅ All security scans passed!"
           fi
 
-          # Exit 0 to make this informational rather than blocking
-          # Change to 'exit 1' if you want to block merges on security issues
+          # DESIGN CHOICE: Exit 0 to make this informational rather than blocking
+          # Rationale: Provides security visibility without blocking development flow
+          # Security issues are reported in PR comments for manual review
+          # To make scans blocking (fail build on issues), change to 'exit 1'
           exit 0
