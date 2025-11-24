@@ -36,6 +36,7 @@ a custom User model or centralize admin customizations.
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.contrib.auth.models import User
+from .models import Group, Unavailability, GroupUnavailability
 
 # Unregister Django's default User admin interface
 # This allows us to register our custom version below
@@ -70,3 +71,90 @@ class CustomUserAdmin(BaseUserAdmin):
 # NOTE: This must be the ONLY place in the project where User admin is registered
 # Multiple registrations will cause Django to raise AlreadyRegistered exception
 admin.site.register(User, CustomUserAdmin)
+
+
+@admin.register(Group)
+class GroupAdmin(admin.ModelAdmin):
+    """
+    Admin interface for Group model with join code management.
+
+    Displays group information including join codes and their enabled status.
+    Allows admins to view and manage group join codes directly from the admin panel.
+
+    List Display:
+        - name: Group name
+        - created_by: User who created the group
+        - created_at: When the group was created
+        - join_code: The group's join code (if any)
+        - join_code_enabled: Whether the join code is active
+
+    Filters:
+        - created_by: Filter by group owner
+        - join_code_enabled: Filter by code status (enabled/disabled)
+
+    Search:
+        - Searchable by group name and join code
+    """
+    list_display = ('name', 'created_by', 'created_at', 'join_code', 'join_code_enabled')
+    list_filter = ('created_by', 'join_code_enabled', 'created_at')
+    search_fields = ('name', 'join_code')
+    readonly_fields = ('created_at',)
+    filter_horizontal = ('members',)
+
+
+@admin.register(Unavailability)
+class UnavailabilityAdmin(admin.ModelAdmin):
+    """
+    Admin interface for personal Unavailability entries.
+
+    Displays individual user unavailability periods with date and time details.
+    Allows admins to view and manage user availability schedules.
+
+    List Display:
+        - user: User who created the entry
+        - date: Date of unavailability
+        - start_time: Start time
+        - end_time: End time
+        - description: Optional description
+
+    Filters:
+        - user: Filter by user
+        - date: Filter by date
+
+    Search:
+        - Searchable by username and description
+    """
+    list_display = ('user', 'date', 'start_time', 'end_time', 'description')
+    list_filter = ('user', 'date')
+    search_fields = ('user__username', 'description')
+    ordering = ('-date', '-start_time')
+
+
+@admin.register(GroupUnavailability)
+class GroupUnavailabilityAdmin(admin.ModelAdmin):
+    """
+    Admin interface for group unavailability entries.
+
+    Displays group unavailability periods created by group members.
+    Allows admins to view and manage group scheduling conflicts.
+
+    List Display:
+        - group: Group name
+        - user: User who created the entry
+        - date: Date of unavailability
+        - start_time: Start time
+        - end_time: End time
+        - description: Optional description
+
+    Filters:
+        - group: Filter by group
+        - user: Filter by user
+        - date: Filter by date
+
+    Search:
+        - Searchable by group name, username, and description
+    """
+    list_display = ('group', 'user', 'date', 'start_time', 'end_time', 'description')
+    list_filter = ('group', 'user', 'date')
+    search_fields = ('group__name', 'user__username', 'description')
+    ordering = ('-date', '-start_time')

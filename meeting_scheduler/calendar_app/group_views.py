@@ -24,6 +24,7 @@ Security: All views require authentication and verify group membership
 """
 import datetime
 import logging
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
@@ -431,17 +432,24 @@ def generate_join_code_view(request, group_id):
 
     if request.method == 'POST':
         # Generate unique join code
-        max_attempts = 10
+        max_attempts = getattr(settings, 'JOIN_CODE_MAX_ATTEMPTS', 10)
         for _ in range(max_attempts):
             code = generate_join_code()
             # Check if code is unique
             if not Group.objects.filter(join_code=code).exists():
-                group.join_code = code
-                group.join_code_enabled = True
-                group.save()
-                logger.info('User %s generated join code for group %s', request.user.username, group.id)
-                messages.success(request, f'Join code generated: {code}')
-                return redirect('group_detail', group_id=group.id)
+                try:
+                    group.join_code = code
+                    group.join_code_enabled = True
+                    group.save()
+                    logger.info('User %s generated join code for group %s', request.user.username, group.id)
+                    messages.success(request, f'Join code generated: {code}')
+                    return redirect('group_detail', group_id=group.id)
+                except IntegrityError:
+                    # Race condition: another request saved the same code
+                    # Log and retry with a new code
+                    logger.warning('IntegrityError generating code %s for group %s, retrying',
+                                 code, group.id)
+                    continue
 
         # If we couldn't generate unique code after max attempts
         messages.error(request, 'Failed to generate unique code. Please try again.')

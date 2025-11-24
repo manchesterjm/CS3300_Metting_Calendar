@@ -265,6 +265,12 @@ DEFAULT_FROM_EMAIL = 'noreply@meetingcalendar.local'
 # DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL')
 
 # =============================================================================
+# GROUP JOIN CODE SETTINGS
+# =============================================================================
+# Maximum attempts to generate a unique join code before failing
+JOIN_CODE_MAX_ATTEMPTS = 10
+
+# =============================================================================
 # LOCAL SETTINGS OVERRIDE
 # =============================================================================
 # Import local_settings.py if it exists (gitignored, for local development)
