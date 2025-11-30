@@ -9,10 +9,10 @@ from views, following SOFA principles:
 - Abstraction: Business logic abstracted from presentation layer
 """
 import datetime
-from typing import List, Set, Tuple, Optional
+from typing import List, Set, Tuple
 from django.contrib.auth.models import User
 from django.db.models import QuerySet
-from .models import Unavailability, Group, GroupUnavailability
+from .models import Unavailability, Group
 
 
 class TimeSlotService:

@@ -111,9 +111,8 @@ def login_view(request):
                 require_https=request.is_secure()
             ):
                 return redirect(next_url)
-            else:
-                # Default safe redirect if next URL is missing or unsafe
-                return redirect('calendar')
+            # Default safe redirect if next URL is missing or unsafe
+            return redirect('calendar')
         messages.error(request, 'Invalid username or password.')
     else:
         form = CustomAuthenticationForm()

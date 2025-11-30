@@ -67,7 +67,7 @@ def is_business_hours(time_slot):
     Returns:
         bool: True if within business hours, False otherwise
     """
-    hour, minute = map(int, time_slot.split(':'))
+    hour, _ = map(int, time_slot.split(':'))
     return 8 <= hour < 20
 
 
