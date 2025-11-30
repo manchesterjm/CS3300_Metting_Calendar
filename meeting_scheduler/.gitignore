@@ -1,66 +1,21 @@
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
+# Live testing temporary files
+cookies.txt
+csrf_token.txt
+register_page.html
+test_username.txt
 
-# Django
-*.log
-db.sqlite3
-db.sqlite3-journal
-/staticfiles/
-/media/
-logs/
+# Server logs
+server.log
+
+# Django development
+*.pyc
+__pycache__/
+
+# Coverage reports
+coverage.xml
+htmlcov/
+.coverage
 
 # Environment
-.env
-.venv
 env/
 venv/
-ENV/
-env.bak/
-venv.bak/
-
-# IDEs
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-.DS_Store
-
-# Testing
-.coverage
-.coverage.*
-htmlcov/
-.pytest_cache/
-.hypothesis/
-*.cover
-.tox/
-coverage.xml
-pytest.xml
-
-# Security
-*.pem
-*.key
-*.crt
-.semgrep_cache/
-
-# Local settings
-local_settings.py
