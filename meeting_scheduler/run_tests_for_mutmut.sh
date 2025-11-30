@@ -1,4 +1,7 @@
 #!/bin/bash
 # Wrapper script for mutmut to run tests from the correct directory
-cd "$(dirname "$0")"
-pytest calendar_app/tests/ -x --tb=no -q --no-cov
+# Get the directory where this script is located
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Change to that directory (meeting_scheduler/)
+cd "$SCRIPT_DIR"
+python manage.py test calendar_app.tests --verbosity=0

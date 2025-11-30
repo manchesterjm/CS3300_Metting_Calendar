@@ -31,11 +31,14 @@ class MutationTester:
                 [sys.executable, 'manage.py', 'test', 'calendar_app.tests', '--verbosity=0'],
                 capture_output=True,
                 text=True,
-                timeout=60
+                timeout=120
             )
             return result.returncode == 0
+        except subprocess.TimeoutExpired:
+            print("  [TIMEOUT] Tests timed out after 120 seconds")
+            return False  # Timeout means mutation likely caused infinite loop = killed
         except Exception as e:
-            print(f"Error running tests: {e}")
+            print(f"  [ERROR] Error running tests: {e}")
             return None
 
     def apply_mutation(self, filepath, original, mutated, description):
