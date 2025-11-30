@@ -1,157 +1,216 @@
 """
 Django views for the calendar application.
 
-This module contains the main view logic for the meeting scheduler,
-including handling unavailability entry creation, free time slot calculation,
-entry display, and deletion functionality.
+This module contains view logic for the meeting scheduler following SOFA principles:
+- Single Responsibility: Each view handles one specific action
+- Open/Closed: Views can be extended through composition
+- Functional Composition: Complex operations delegated to service layer
+- Abstraction: Business logic abstracted to services.py
 
-Main View:
-    - calendar_view: Handles all calendar operations (add, delete, show free times)
+Views:
+    - calendar_view: Main router view delegating to action handlers
+    - Action handlers: Focused functions for each POST action
 
-TODO: Consider adding timezone support for international users.
-TODO: Optimize free time calculation with database-level queries.
-
-Version: 2.0
+Version: 3.0 - Refactored with service layer
 Security: All views require authentication and implement CSRF protection
 """
-import datetime
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import render, redirect
+from django.http import HttpRequest, HttpResponse
+
 from .forms import UnavailabilityForm, DeleteSelectedForm
-from .models import Unavailability
+from .services import TimeSlotService, UnavailabilityService
 
 
-@login_required
-def calendar_view(request):
+# Action handler functions (Single Responsibility)
+
+def _handle_submit_unavailability(request: HttpRequest) -> tuple:
     """
-    Main view for the calendar application handling all form submissions.
-
-    This single view handles multiple POST actions using a button name pattern:
-    - submit_unavailability: Creates new unavailability entries
-    - show_free_times: Calculates and displays available time slots for a date
-    - show_last_five: Displays the 5 most recent unavailability entries
-    - delete_selected: Deletes selected unavailability entries
-
-    Free time slots are calculated in 30-minute intervals between 8:00-20:00,
-    excluding any periods marked as unavailable in the database.
+    Handle creation of new unavailability record.
 
     Args:
-        request: HttpRequest object containing metadata about the request.
+        request: HTTP request with POST data
 
     Returns:
-        HttpResponse: Rendered calendar template with form(s) and optionally
-            free_times list if show_free_times was requested.
+        Tuple of (should_redirect, form, form_delete, free_times)
+    """
+    form = UnavailabilityForm(request.POST, submit_type='submit_unavailability')
 
-    Redirects:
-        - After successful unavailability submission
-        - After successful deletion of entries
+    if form.is_valid():
+        # Save through the form (which handles recurring logic)
+        new_record = form.save(commit=False)
+        new_record.user = request.user
+        new_record.save()
+
+        messages.success(
+            request,
+            f'New Record Made: <br>{new_record.date} from '
+            f'{new_record.start_time} to {new_record.end_time}'
+        )
+        return True, None, None, None
+
+    # Form invalid - return for display
+    return False, form, DeleteSelectedForm(), None
+
+
+def _handle_show_free_times(request: HttpRequest) -> tuple:
+    """
+    Calculate and display free time slots for selected date.
+
+    Uses TimeSlotService to abstract business logic.
+
+    Args:
+        request: HTTP request with POST data
+
+    Returns:
+        Tuple of (should_redirect, form, form_delete, free_times)
+    """
+    form = UnavailabilityForm(request.POST)
+
+    if form.is_valid():
+        selected_date = form.cleaned_data['date']
+
+        # Delegate to service layer (Abstraction principle)
+        free_times = TimeSlotService.calculate_free_slots(
+            user=request.user,
+            date=selected_date
+        )
+
+        return False, form, DeleteSelectedForm(), free_times
+
+    # Form invalid
+    return False, form, DeleteSelectedForm(), None
+
+
+def _handle_show_last_five(request: HttpRequest) -> tuple:
+    """
+    Display last 5 unavailability entries for deletion selection.
+
+    Uses UnavailabilityService for data access.
+
+    Args:
+        request: HTTP request
+
+    Returns:
+        Tuple of (should_redirect, form, form_delete, free_times)
+    """
+    form = UnavailabilityForm()
+
+    # Delegate to service layer
+    choices = UnavailabilityService.get_recent_entries(
+        user=request.user,
+        limit=5
+    )
+
+    form_delete = DeleteSelectedForm()
+    form_delete.fields['entry_ids'].choices = choices
+
+    return False, form, form_delete, None
+
+
+def _handle_delete_selected(request: HttpRequest) -> tuple:
+    """
+    Delete selected unavailability entries.
+
+    Uses UnavailabilityService for data operations.
+
+    Args:
+        request: HTTP request with POST data
+
+    Returns:
+        Tuple of (should_redirect, form, form_delete, free_times)
+    """
+    form = UnavailabilityForm()
+
+    # Get choices for form validation
+    choices = UnavailabilityService.get_recent_entries(
+        user=request.user,
+        limit=5
+    )
+
+    form_delete = DeleteSelectedForm(request.POST)
+    form_delete.fields['entry_ids'].choices = choices
+
+    if form_delete.is_valid():
+        entry_ids = form_delete.cleaned_data['entry_ids']
+
+        if entry_ids:
+            entry_ids = [int(e_id) for e_id in entry_ids]
+
+            # Delegate to service layer
+            deleted_count = UnavailabilityService.delete_entries(
+                user=request.user,
+                entry_ids=entry_ids
+            )
+
+            if deleted_count > 0:
+                messages.success(request, f'Deleted {deleted_count} entry(ies)')
+
+        return True, None, None, None
+
+    # Form invalid
+    return False, form, form_delete, None
+
+
+# Main view (Router pattern - delegates to handlers)
+
+@login_required
+def calendar_view(request: HttpRequest) -> HttpResponse:
+    """
+    Main calendar view acting as a router to action handlers.
+
+    Follows Single Responsibility: Only routes requests to appropriate handlers.
+    All business logic delegated to service layer and action handlers.
+
+    POST Actions:
+        - submit_unavailability: Create new entry
+        - show_free_times: Calculate available slots
+        - show_last_five: Show recent entries for deletion
+        - delete_selected: Delete selected entries
+
+    Args:
+        request: HttpRequest object
+
+    Returns:
+        HttpResponse: Rendered template or redirect
     """
     free_times = None
-    form_delete = None  # This will be used for deletion
+    form = None
+    form_delete = None
 
     if request.method == 'POST':
+        # Route to appropriate handler (Open/Closed principle - easy to extend)
         if 'submit_unavailability' in request.POST:
-            form = UnavailabilityForm(request.POST, submit_type='submit_unavailability')
-            if form.is_valid():
-                # Save but don't commit yet - need to associate with user
-                new_record = form.save(commit=False)
-                new_record.user = request.user
-                new_record.save()
-                messages.success(
-                request,
-                f'New Record Made: <br>{new_record.date} from '
-                f'{new_record.start_time} to {new_record.end_time}'
-                )
-                return redirect('calendar')  # return to calendar initial view
-            # and again, I have not been able to make it error in such a way
-            # that this gets displayed now
-            print("Unavailability Form Errors:", form.errors)
+            should_redirect, form, form_delete, free_times = \
+                _handle_submit_unavailability(request)
 
         elif 'show_free_times' in request.POST:
-            form = UnavailabilityForm(request.POST)
-            # it is always good to check if the form is valid.  If not, the DB
-            # did corrupt a few times, which is why I needed to add this form to
-            # delete past entries.  It now serves to delete a bad entry that a user
-            # might make
-            if form.is_valid():
-                data = form.cleaned_data
-                selected_date = data['date']
-                unavail_list = Unavailability.objects.filter(user=request.user, date=selected_date)
+            should_redirect, form, form_delete, free_times = \
+                _handle_show_free_times(request)
 
-                start_dt = datetime.datetime.combine(selected_date, datetime.time(8, 0))
-                end_dt = datetime.datetime.combine(selected_date, datetime.time(20, 0))
-                all_slots = []
-                while start_dt < end_dt:
-                    all_slots.append(start_dt.time())
-                    start_dt += datetime.timedelta(minutes=30)
-                # start date and time display
-                taken_slots = set()
-                for unavail in unavail_list:
-                    current_slot = datetime.datetime.combine(selected_date, unavail.start_time)
-                    unavail_end = datetime.datetime.combine(selected_date, unavail.end_time)
-                    while current_slot < unavail_end:
-                        taken_slots.add(current_slot.time())
-                        current_slot += datetime.timedelta(minutes=30)
-                # actual print out
-                free_times = [slot.strftime("%H:%M") for slot in all_slots
-                              if slot not in taken_slots]
-            # I didn't do this to start and I found out that it didn't work
-            # if the database corrupted
-            print("Show Free Times Form Errors:", form.errors)
-            form_delete = DeleteSelectedForm()  # Initialize an empty deletion form for display
-
-        # show last five entries in the database
         elif 'show_last_five' in request.POST:
-            form = UnavailabilityForm()
-            last_five = Unavailability.objects.filter(user=request.user).order_by('-id')[:5]
-            choices = []
-            for entry in last_five:  # start the print out here
-                label = f"{entry.date} from {entry.start_time} to {entry.end_time}"
-                choices.append((entry.id, label))
-            form_delete = DeleteSelectedForm()
-            # what entries are we going to delete, entry ids are used to find
-            # the entries in the DB
-            form_delete.fields['entry_ids'].choices = choices
+            should_redirect, form, form_delete, free_times = \
+                _handle_show_last_five(request)
 
         elif 'delete_selected' in request.POST:
-            form = UnavailabilityForm()  # Reinitialize the main form
-            # Repopulate choices from the last five entries
-            last_five = Unavailability.objects.filter(user=request.user).order_by('-id')[:5]
-            choices = []  # list/array of the entries we selected
-            for entry in last_five:
-                label = f"{entry.date} from {entry.start_time} to {entry.end_time}"
-                choices.append((entry.id, label))
+            should_redirect, form, form_delete, free_times = \
+                _handle_delete_selected(request)
 
-            form_delete = DeleteSelectedForm(request.POST)
-            form_delete.fields['entry_ids'].choices = choices
-
-            if form_delete.is_valid():
-                entry_ids = form_delete.cleaned_data['entry_ids']
-                # Debug output, I left this in to show what I did to catch errors,
-                # but it should not be needed anymore. It may be good for future devs.
-                print("Delete form cleaned data:", entry_ids)
-                if entry_ids:
-                    entry_ids = [int(e_id) for e_id in entry_ids]
-                    # Only delete entries belonging to the current user
-                    count_before = Unavailability.objects.filter(
-                        user=request.user, id__in=entry_ids).count()
-                    print("Count before deletion:", count_before)
-                    Unavailability.objects.filter(user=request.user, id__in=entry_ids).delete()
-                    count_after = Unavailability.objects.filter(
-                        user=request.user, id__in=entry_ids).count()
-                    print("Count after deletion:", count_after)
-                else:
-                    print("No entries selected for deletion.")  # we didn't select anything
-                return redirect('calendar')  # return to calendar initial view
-            # added this as a catch all, but I can't make it error in a way
-            # that this gets displayed now
-            print("Delete Form Errors:", form_delete.errors)
         else:
+            # Unknown action
             form = UnavailabilityForm()
             form_delete = DeleteSelectedForm()
-    else:
+            should_redirect = False
+
+        # Handle redirect if needed
+        if should_redirect:
+            return redirect('calendar')
+
+    # GET request or POST without redirect
+    if form is None:
         form = UnavailabilityForm()
+    if form_delete is None:
         form_delete = DeleteSelectedForm()
 
     return render(request, 'calendar_app/calendar.html', {
