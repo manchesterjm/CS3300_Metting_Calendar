@@ -104,34 +104,34 @@ class MutationTester:
     def run_all_mutations(self):
         """Run all defined mutations"""
         print("="*70)
-        print("MUTATION TESTING")
+        print("MUTATION TESTING - Updated for SOFA Refactoring")
         print("="*70)
 
-        # Mutation 1: Change time increment in free time calculation
+        # Mutation 1: Change time increment in free time calculation (NOW IN SERVICES)
         self.test_mutation(
-            'calendar_app/views.py',
-            'start_dt += datetime.timedelta(minutes=30)',
-            'start_dt += datetime.timedelta(minutes=60)',
-            'Mutation 1: Change time slot from 30 to 60 minutes'
+            'calendar_app/services.py',
+            'current += datetime.timedelta(minutes=interval_minutes)',
+            'current += datetime.timedelta(minutes=interval_minutes * 2)',
+            'Mutation 1: Change time slot increment'
         )
 
-        # Mutation 2: Change start time boundary
+        # Mutation 2: Change start time constant (NOW IN SERVICES)
         self.test_mutation(
-            'calendar_app/views.py',
-            'start_dt = datetime.datetime.combine(selected_date, datetime.time(8, 0))',
-            'start_dt = datetime.datetime.combine(selected_date, datetime.time(9, 0))',
-            'Mutation 2: Change start time from 8:00 to 9:00'
+            'calendar_app/services.py',
+            'DEFAULT_START_HOUR = 8',
+            'DEFAULT_START_HOUR = 9',
+            'Mutation 2: Change default start hour from 8 to 9'
         )
 
-        # Mutation 3: Change end time boundary
+        # Mutation 3: Change end time constant (NOW IN SERVICES)
         self.test_mutation(
-            'calendar_app/views.py',
-            'end_dt = datetime.datetime.combine(selected_date, datetime.time(20, 0))',
-            'end_dt = datetime.datetime.combine(selected_date, datetime.time(19, 0))',
-            'Mutation 3: Change end time from 20:00 to 19:00'
+            'calendar_app/services.py',
+            'DEFAULT_END_HOUR = 20',
+            'DEFAULT_END_HOUR = 19',
+            'Mutation 3: Change default end hour from 20 to 19'
         )
 
-        # Mutation 4: Change default time validation
+        # Mutation 4: Change default time validation (STILL IN FORMS)
         self.test_mutation(
             'calendar_app/forms.py',
             'if start_time == fake_default_time:',
@@ -139,15 +139,15 @@ class MutationTester:
             'Mutation 4: Invert start time validation logic'
         )
 
-        # Mutation 5: Change last five query limit
+        # Mutation 5: Change query limit (NOW IN SERVICES)
         self.test_mutation(
-            'calendar_app/views.py',
-            "last_five = Unavailability.objects.filter(user=request.user).order_by('-id')[:5]",
-            "last_five = Unavailability.objects.filter(user=request.user).order_by('-id')[:3]",
-            'Mutation 5: Change query limit from 5 to 3'
+            'calendar_app/services.py',
+            "entries = Unavailability.objects.filter(user=user).order_by('-id')[:limit]",
+            "entries = Unavailability.objects.filter(user=user).order_by('-id')[:3]",
+            'Mutation 5: Change query limit from variable to hardcoded 3'
         )
 
-        # Mutation 6: Change model string format
+        # Mutation 6: Change model string format (STILL IN MODELS)
         self.test_mutation(
             'calendar_app/models.py',
             'return f"{self.user.username}: {self.date} from {self.start_time} to {self.end_time}"',
@@ -155,20 +155,20 @@ class MutationTester:
             'Mutation 6: Remove times from model string representation'
         )
 
-        # Mutation 7: Change comparison operator
+        # Mutation 7: Change comparison operator (NOW IN SERVICES)
         self.test_mutation(
-            'calendar_app/views.py',
-            'while start_dt < end_dt:',
-            'while start_dt <= end_dt:',
+            'calendar_app/services.py',
+            'while current < end_dt:',
+            'while current <= end_dt:',
             'Mutation 7: Change < to <= in time slot loop'
         )
 
-        # Mutation 8: Change comparison operator in slot marking
+        # Mutation 8: Change comparison operator in taken slots (NOW IN SERVICES)
         self.test_mutation(
-            'calendar_app/views.py',
-            'while current_slot < unavail_end:',
-            'while current_slot <= unavail_end:',
-            'Mutation 8: Change < to <= in unavailability marking'
+            'calendar_app/services.py',
+            'while current < end:',
+            'while current <= end:',
+            'Mutation 8: Change < to <= in taken slots loop'
         )
 
         self.print_results()
