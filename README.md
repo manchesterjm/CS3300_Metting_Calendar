@@ -4,8 +4,8 @@
 
 A comprehensive web application for managing personal schedules and finding common free times within groups.
 
-[![Django](https://img.shields.io/badge/Django-5.1.13-green.svg)](https://www.djangoproject.com/)
-[![Python](https://img.shields.io/badge/Python-3.11%2B-blue.svg)](https://www.python.org/)
+[![Django](https://img.shields.io/badge/Django-6.0.1-green.svg)](https://www.djangoproject.com/)
+[![Python](https://img.shields.io/badge/Python-3.12%2B-blue.svg)](https://www.python.org/)
 [![Tests](https://img.shields.io/badge/Tests-141%20passing-brightgreen.svg)](./meeting_scheduler/TESTING_REPORT.md)
 [![Coverage](https://img.shields.io/badge/Coverage-93%25-brightgreen.svg)](./meeting_scheduler/TESTING_REPORT.md)
 [![Mutation Score](https://img.shields.io/badge/Mutation%20Score-100%25-brightgreen.svg)](./meeting_scheduler/TESTING_REPORT.md)
@@ -234,7 +234,7 @@ python run_security_scans.py
 
 ### Security Features
 - ✅ **Zero vulnerabilities** (pip-audit, Safety scans)
-- ✅ **Django 5.1.13** (latest security patches)
+- ✅ **Django 6.0.1** (requires Python 3.12+)
 - ✅ **CSRF protection** on all forms
 - ✅ **XSS protection** with auto-escaping
 - ✅ **SQL injection protection** via Django ORM
@@ -330,8 +330,8 @@ EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 ## 📦 Dependencies
 
 ### Core Dependencies
-- **Django 5.1.13** - Web framework
-- **Python 3.11+** - Programming language
+- **Django 6.0.1** - Web framework (requires Python 3.12+)
+- **Python 3.12+** - Programming language
 
 ### Development Dependencies
 - **pylint 4.0+** - Code quality

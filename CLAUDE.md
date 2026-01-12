@@ -14,7 +14,7 @@ CS3300_project/
 │   ├── manage.py               # Django management script
 │   ├── db.sqlite3              # SQLite database
 │   ├── meeting_scheduler/      # Project configuration
-│   │   ├── settings.py         # Django settings (uses Django 5.1.6)
+│   │   ├── settings.py         # Django settings (uses Django 6.0.1)
 │   │   ├── urls.py             # Root URL configuration
 │   │   ├── wsgi.py             # WSGI application entry point
 │   │   └── asgi.py             # ASGI application entry point
@@ -35,10 +35,12 @@ review all documents *.md prior to proceeding
 ensure that guidance in these documents are adhered to prior to proceeding
 
 ### Prerequisites
-Install Python 3, pip, and virtual environment tools:
+Install Python 3.12+, pip, and virtual environment tools:
 ```bash
-sudo apt install python3 python3-pip python3-venv -y  # Ubuntu/Debian
+sudo apt install python3.12 python3-pip python3-venv -y  # Ubuntu/Debian
 ```
+
+**Note:** Django 6.0+ requires Python 3.12 or higher.
 
 ### Virtual Environment Setup
 Create and activate a virtual environment in the `meeting_scheduler/` directory:
@@ -410,7 +412,7 @@ The following security features are already configured:
 ### Dependencies
 
 **Current versions (security-patched):**
-- Django 5.1.13 (latest security release)
+- Django 6.0.1 (requires Python 3.12+)
 - All dependencies scanned for known vulnerabilities
 - Regular updates required to maintain security
 
@@ -543,7 +545,7 @@ The codebase includes `print()` statements for debugging form errors. These are 
 ## Configuration
 
 ### Settings (`meeting_scheduler/settings.py`)
-- **Django Version**: 5.1.13 (security-patched)
+- **Django Version**: 6.0.1 (requires Python 3.12+)
 - **Database**: SQLite3 at `BASE_DIR / 'db.sqlite3'`
 - **Debug Mode**: `DEBUG = True` (development only - **MUST be False in production**)
 - **Allowed Hosts**: Currently `['*']` (accepts all hosts). For production or VM deployment, update to specific IP addresses:
