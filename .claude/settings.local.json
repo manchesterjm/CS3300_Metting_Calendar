@@ -34,6 +34,7 @@
       "Bash(git push:*)",
       "Bash(git commit:*)",
       "Bash(git rev-list:*)",
+      "Bash(gh:*)",
       "mcp__ide__getDiagnostics",
       "Bash(powershell \"Remove-Item -Recurse -Force calendar_app\\__pycache__\")",
       "Bash(powershell \"Get-ChildItem -Recurse -Include __pycache__ | Remove-Item -Recurse -Force\")",
