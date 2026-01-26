@@ -3,7 +3,7 @@
 Django==6.0.1
 
 # Production Server
-gunicorn==23.0.0
+gunicorn==24.1.1
 
 # PostgreSQL Database Adapter (optional - not needed for SQLite)
 psycopg2-binary==2.9.11
