@@ -1,6 +1,6 @@
 # Django Framework
 # Django 6.0+ requires Python 3.12+
-Django==6.0.1
+Django==6.0.2
 
 # Production Server
 gunicorn==24.1.1
