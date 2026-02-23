@@ -10,7 +10,7 @@ psycopg2-binary==2.9.11
 
 # Static Files & Database URL Parsing
 whitenoise==6.11.0
-dj-database-url==3.1.0
+dj-database-url==3.1.2
 
 # Environment Variable Management (optional but recommended)
 python-decouple==3.8
