@@ -3,13 +3,13 @@
 Django==6.0.2
 
 # Production Server
-gunicorn==25.0.3
+gunicorn==25.1.0
 
 # PostgreSQL Database Adapter (optional - not needed for SQLite)
 psycopg2-binary==2.9.11
 
 # Static Files & Database URL Parsing
-whitenoise==6.11.0
+whitenoise==6.12.0
 dj-database-url==3.1.0
 
 # Environment Variable Management (optional but recommended)
