@@ -20,4 +20,4 @@ semgrep>=1.142.0
 # Security: Patched transitive dependencies
 # These versions fix CVEs in dependencies of security tools (authlib, safety)
 cryptography>=46.0.0  # Fixes PYSEC-2024-225, GHSA-3ww4-gg4f-jr7f, GHSA-9v9h-cgj8-h64p, GHSA-h4gh-qq45-vh27
-setuptools>=78.1.1    # Fixes PYSEC-2025-49, GHSA-cx63-2mw6-8hw5
+setuptools>=82.0.1    # Fixes PYSEC-2025-49, GHSA-cx63-2mw6-8hw5
