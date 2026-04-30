@@ -15,6 +15,7 @@ Views:
 Security Features: Login required decorators, password validation, session management.
 """
 import logging
+from urllib.parse import urlparse
 from django.contrib import messages
 from django.contrib.auth import login, logout, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
@@ -22,7 +23,6 @@ from django.contrib.auth.forms import PasswordChangeForm
 from django.db import DatabaseError, IntegrityError, transaction
 from django.shortcuts import render, redirect
 from django.http import HttpResponseServerError, JsonResponse
-from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_http_methods
 from .auth_forms import UserRegistrationForm, CustomAuthenticationForm, UserProfileForm
 from .utils import generate_password
@@ -107,16 +107,14 @@ def login_view(request):
             login(request, user)
             messages.success(request, f'Welcome back, {user.username}!')
 
-            # SECURITY FIX (CWE-601): Validate redirect URL to prevent open redirect attacks
-            # Only allow redirects to same domain to prevent phishing
-            next_url = request.GET.get('next', '')
-            if next_url and url_has_allowed_host_and_scheme(
-                url=next_url,
-                allowed_hosts={request.get_host()},
-                require_https=request.is_secure()
-            ):
+            # SECURITY FIX (CWE-601): Only allow redirects to relative paths.
+            # Pattern from CodeQL py/url-redirection docs: backslashes stripped
+            # (browsers treat them as forward slashes), then reject anything
+            # with a netloc or scheme so absolute URLs cannot smuggle a host.
+            next_url = request.GET.get('next', '').replace('\\', '')
+            parsed = urlparse(next_url)
+            if next_url and not parsed.netloc and not parsed.scheme:
                 return redirect(next_url)
-            # Default safe redirect if next URL is missing or unsafe
             return redirect('home')
         messages.error(request, 'Invalid username or password.')
     else:
