@@ -2,20 +2,20 @@
 # Use: pip install -r requirements-dev.txt
 
 # Code Quality
-pylint>=4.0.0
+pylint>=4.0.5
 
 # Testing
-hypothesis>=6.143.0
-coverage>=7.11.0
-pytest>=8.4.0
-pytest-django>=4.9.0
-pytest-cov>=6.0.0
+hypothesis>=6.152.4
+coverage>=7.13.5
+pytest>=9.0.3
+pytest-django>=4.12.0
+pytest-cov>=7.1.0
 
 # Security Scanning
-bandit>=1.8.0
-safety>=3.6.0
-pip-audit>=2.9.0
-semgrep>=1.142.0
+bandit>=1.9.4
+safety>=3.7.0
+pip-audit>=2.10.0
+semgrep>=1.161.0
 
 # Security: Patched transitive dependencies
 # These versions fix CVEs in dependencies of security tools (authlib, safety)
